@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import FinancialChart     from './FinancialChart';
 import TeacherPayoutChart from './TeacherPayoutChart';
+import ProfitLineChart from './ProfitLineChart';
 
 const monthNames = [
   { value: 1,  label: 'Enero' },
@@ -96,6 +97,9 @@ export default function FinancialSummary({ month: initialMonth, year: initialYea
     </Grid>
     <Grid item xs={12} md={3}>
         <TeacherPayoutChart month={month} year={year} small />
+    </Grid>
+    <Grid item xs={12} md={3}>
+      <ProfitLineChart  year={year} small refresh={refresh} />
     </Grid>
     </Grid>
 

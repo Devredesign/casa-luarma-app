@@ -115,16 +115,17 @@ export default function AdminDashboard() {
         aria-label="Secciones de gestión"
         sx={{ mb: 2 }}
       >
-        <Tab label="Académico" />
-        <Tab label="Operaciones" />
+        <Tab label="Matrícula" />
+        <Tab label="Alquileres" />
         <Tab label="Finanzas" />
       </Tabs>
 
       {/* ————— Contenido de cada Tab ————— */}
       <TabPanel value={tabIndex} index={0}>
-        {/* Académico */}
-        <ModalitiesManager />
+        {/* Matrícula */}
         
+        <StudentsManager />
+
         <ClassesManager
           teachers={teachers}
           spaces={spaces}
@@ -137,16 +138,23 @@ export default function AdminDashboard() {
           }}
           refreshCalendar={onCalendarChange}
         />
-        
-        <SpacesManager />
+
+        <ModalitiesManager />
         
         <TeacherManager onTeachersUpdate={setTeachers} />
-        
-        <StudentsManager />
+
+        <PaymentManager
+          classesList={classes}
+          students={students}
+          onPaymentsUpdate={p => {
+            setPayments(p);
+            setFinanceRefresh(f => f + 1);
+          }}
+        />
       </TabPanel>
 
       <TabPanel value={tabIndex} index={1}>
-        {/* Operaciones */}
+        {/* Alquileres */}
         
         <RentalManager
           spaces={spaces}
@@ -158,12 +166,14 @@ export default function AdminDashboard() {
           }}
           refreshCalendar={onCalendarChange}
         />
-        
-        <CostsManager />
+
+        <SpacesManager />
+
       </TabPanel>
 
       <TabPanel value={tabIndex} index={2}>
         {/* Finanzas */}
+       <TeacherPayouts />
        
         <FinancialSummary
           month={new Date().getMonth() + 1}
@@ -171,16 +181,9 @@ export default function AdminDashboard() {
           refresh={financeRefresh}
         />
         <Divider sx={{ my: 2 }} />
-        <TeacherPayouts />
         
-        <PaymentManager
-          classesList={classes}
-          students={students}
-          onPaymentsUpdate={p => {
-            setPayments(p);
-            setFinanceRefresh(f => f + 1);
-          }}
-        />
+        <CostsManager />
+        
       </TabPanel>
     </Box>
   );
