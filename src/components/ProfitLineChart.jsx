@@ -36,7 +36,7 @@ export default function ProfitLineChart({ year, small, refresh }) {
     const fetchAll = async () => {
       const promises = monthLabels.map((_, idx) =>
         api
-          .get(`/api/finance/summary?month=${idx+1}&year=${year}`)
+          .get(`/finance/summary?month=${idx+1}&year=${year}`)
           .then(res => res.data)
           .catch(() => null)
       );
