@@ -1,4 +1,4 @@
-// server/routes/chat.js
+/ server/routes/chat.js
 import { Router } from 'express';
 import { Configuration, OpenAIApi } from 'openai';
 
@@ -9,7 +9,8 @@ const openai = new OpenAIApi(
   new Configuration({ apiKey: process.env.OPENAI_API_KEY })
 );
 
-router.post('/', async (req, res) => {
+// Ahora la ruta es POST /chat
+router.post('/chat', async (req, res) => {
   const { messages } = req.body;
   try {
     const completion = await openai.createChatCompletion({

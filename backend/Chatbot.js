@@ -2,19 +2,17 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import chatRouter from './routes/chat.js';  // la ruta de Lilo
+import chatRouter from './routes/chat.js';  // <— la ruta que ahora maneja POST /chat
 
-// Carga variables de entorno
 dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Monta la ruta de chat en /api/chat
-app.use('/api/chat', chatRouter);
-
-// Aquí podrías montar otras rutas, p.ej.
+// Aquí montas **todas** tus rutas de API bajo /api
+app.use('/api', chatRouter);
+// si tuvieras otros routers:
 // import spacesRouter from './routes/spaces.js';
 // app.use('/api/spaces', spacesRouter);
 
