@@ -13,14 +13,14 @@ import {
   CardContent
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-//import ChatLilo from '../components/ChatLilo';
+import ChatWidget from '../components/ChatWidget';
 export default function Home({ onLoginClick, onQuickAction }) {
   return (
     <Box>
       {/* HERO con CTA de Log In */}
       <Box
         sx={{
-          height: { xs: 300, md: 500 },
+          height: { xs: 600, md: 500 },
           background: 'url(/hero-bg.jpg) center/cover no-repeat',
           position: 'relative',
           display: 'flex',
@@ -39,7 +39,7 @@ export default function Home({ onLoginClick, onQuickAction }) {
           }}
         />
         <Box sx={{ position: 'relative', zIndex: 1 }}>
-          <Typography variant="h2" gutterBottom>
+          <Typography variant="h2" sx={{ mt: 20 }} gutterBottom>
             Bienvenidos a Casa Luarma
           </Typography>
           <Typography variant="h5" gutterBottom>
@@ -78,14 +78,7 @@ export default function Home({ onLoginClick, onQuickAction }) {
           </AccordionDetails>
         </Accordion>
 
-        {/* Sección de Lilo Asistente 
-      <Container maxWidth="md" sx={{ mt: 4, mb: 6 }}>
-        <Typography variant="h4" align="center" gutterBottom>
-          Hablá con Lilo, tu asistente
-        </Typography>
-        <ChatLilo />   
-      </Container> 
-      */}
+        <ChatWidget />
        
       </Container>
     </Box>
