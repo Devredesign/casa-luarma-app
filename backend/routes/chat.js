@@ -6,7 +6,6 @@ const openai = new OpenAIApi(
   new Configuration({ apiKey: process.env.OPENAI_API_KEY })
 );
 
-// POST /api/chat
 router.post('/', async (req, res) => {
   const { messages } = req.body;
   try {
