@@ -4,7 +4,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const app = express();
-const chatRouter = require('./routes/chat');
+
 // Conectar a MongoDB Atlas usando la URI desde .env
 const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/tuDB';
 mongoose.connect(mongoUri, {
@@ -30,7 +30,7 @@ app.use('/api/finance/teachers', require('./routes/financeTeachers'));
 app.use('/api/costs', require('./routes/costs'));
 app.use('/api/students', require('./routes/students')); // Estudiantes
 
-app.use('/api/chat', chatRouter);
+
 
 // Error handler genérico (opcional)
 app.use((err, req, res, next) => {
