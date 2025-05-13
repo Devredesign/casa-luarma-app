@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.json());
 
 // monta /api/chat
-app.use('/api/chat', chatRouter);
+app.use('/chat', chatRouter);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Backend corriendo en puerto ${PORT}`));

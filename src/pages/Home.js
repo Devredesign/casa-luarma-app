@@ -13,7 +13,7 @@ import {
   CardContent
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ChatLilo from '../components/ChatLilo';
+//import ChatLilo from '../components/ChatLilo';
 export default function Home({ onLoginClick, onQuickAction }) {
   return (
     <Box>
@@ -50,7 +50,8 @@ export default function Home({ onLoginClick, onQuickAction }) {
             color="secondary"
             size="large"
             onClick={onLoginClick}
-            sx={{ mt: 3, px: 4 }}
+            sx={{ mt: 3, px: 4 }} 
+            href="/login"
           >
             Log In
           </Button>
@@ -77,13 +78,14 @@ export default function Home({ onLoginClick, onQuickAction }) {
           </AccordionDetails>
         </Accordion>
 
-        {/* Sección de Lilo Asistente */}
+        {/* Sección de Lilo Asistente 
       <Container maxWidth="md" sx={{ mt: 4, mb: 6 }}>
         <Typography variant="h4" align="center" gutterBottom>
           Hablá con Lilo, tu asistente
         </Typography>
-        <ChatLilo />   {/* <-- aquí lo incrustás */}
-      </Container>
+        <ChatLilo />   
+      </Container> 
+      */}
        
       </Container>
     </Box>
