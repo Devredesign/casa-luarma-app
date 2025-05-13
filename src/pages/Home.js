@@ -13,7 +13,6 @@ import {
   CardContent
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ChatWidget from '../components/ChatWidget';
 export default function Home({ onLoginClick, onQuickAction }) {
   return (
     <Box>
@@ -78,7 +77,7 @@ export default function Home({ onLoginClick, onQuickAction }) {
           </AccordionDetails>
         </Accordion>
 
-        <ChatWidget />
+        
        
       </Container>
     </Box>
