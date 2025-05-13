@@ -220,10 +220,10 @@ const PaymentManager = ({ classesList, students, onPaymentsUpdate }) => {
                         Marcar pagado
                       </Button>
                     ) : (
-                      <CheckCircleIcon color="success" sx={{ mr: 1, alignSelf: 'center' }} />
+                      <CheckCircleIcon edge="end" color="success" sx={{ mr: 1, mt: 1}} />
                     )}
                     <IconButton edge="end" aria-label="eliminar" onClick={() => deletePayment(p._id)}>
-                      <DeleteIcon color="error" />
+                      <DeleteIcon color="error"  />
                     </IconButton>
                   </ListItem>
                 );

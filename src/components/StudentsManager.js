@@ -44,6 +44,7 @@ const StudentsManager = ({ onStudentsUpdate }) => {
       setStudents(updated);
       onStudentsUpdate?.(updated);
       toast.success('Estudiante registrado exitosamente');
+      fetchStudents();
     } catch (err) {
       console.error('Error al registrar estudiante:', err);
       toast.error('Error al registrar estudiante');

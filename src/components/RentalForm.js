@@ -1,5 +1,5 @@
 // src/components/RentalForm.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -13,7 +13,7 @@ import {
   Checkbox
 } from '@mui/material';
 
-const RentalForm = ({ onAddRental, spaces = [] }) => {
+export default function RentalForm({ onAddRental, initialData, spaces = [], quick }) {
   const [formData, setFormData] = useState({
     space: '',
     tenantName: '',
@@ -22,6 +22,20 @@ const RentalForm = ({ onAddRental, spaces = [] }) => {
     startTime: '',
     isRecurring: false  // Nuevo campo para indicar recurrencia
   });
+
+  // Sincroniza initialData cuando cambia (modo edición)
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        space:       initialData.space || '',
+        tenantName:  initialData.tenantName || '',
+        activityName: initialData.activityName || '',
+        hours:       initialData.hours?.toString() || '',
+        startTime:   initialData.startTime ? initialData.startTime.substring(0,16) : '',
+        isRecurring: initialData.isRecurring || false
+      });
+    }
+  }, [initialData]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -35,30 +49,28 @@ const RentalForm = ({ onAddRental, spaces = [] }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onAddRental(formData);
-    setFormData({
-      space: '',
-      tenantName: '',
-      activityName: '',
-      hours: '',
-      startTime: '',
-      isRecurring: false
-    });
+    // Convierte horas a número y fecha a ISO si necesario
+    const payload = {
+      ...formData,
+      hours: Number(formData.hours),
+      startTime: new Date(formData.startTime).toISOString()
+    };
+    onAddRental(payload);
+    if (!initialData) {
+      // Solo limpia en creación, en edición espera que el padre limpie
+      setFormData({ space: '', tenantName: '', activityName: '', hours: '', startTime: '', isRecurring: false });
+    }
   };
 
   return (
     <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
-      <Typography variant="h6">Registrar Alquiler</Typography>
+      <Typography variant="h6">{initialData ? 'Editar Alquiler' : 'Registrar Alquiler'}</Typography>
       <FormControl fullWidth required margin="normal">
         <InputLabel>Espacio a alquilar</InputLabel>
         <Select name="space" value={formData.space} onChange={handleChange} label="Espacio a alquilar">
-          <MenuItem value="">
-            <em>Seleccione un espacio</em>
-          </MenuItem>
+          <MenuItem value=""><em>Seleccione un espacio</em></MenuItem>
           {spaces?.map(space => (
-            <MenuItem key={space._id} value={space._id}>
-              {space.name}
-            </MenuItem>
+            <MenuItem key={space._id} value={space._id}>{space.name}</MenuItem>
           ))}
         </Select>
       </FormControl>
@@ -67,18 +79,14 @@ const RentalForm = ({ onAddRental, spaces = [] }) => {
         name="tenantName"
         value={formData.tenantName}
         onChange={handleChange}
-        fullWidth
-        required
-        margin="normal"
+        fullWidth required margin="normal"
       />
       <TextField
         label="Nombre de la actividad"
         name="activityName"
         value={formData.activityName}
         onChange={handleChange}
-        fullWidth
-        required
-        margin="normal"
+        fullWidth required margin="normal"
       />
       <TextField
         label="Cantidad de horas"
@@ -86,9 +94,7 @@ const RentalForm = ({ onAddRental, spaces = [] }) => {
         type="number"
         value={formData.hours}
         onChange={handleChange}
-        fullWidth
-        required
-        margin="normal"
+        fullWidth required margin="normal"
       />
       <TextField
         label="Fecha y hora de inicio"
@@ -96,9 +102,7 @@ const RentalForm = ({ onAddRental, spaces = [] }) => {
         type="datetime-local"
         value={formData.startTime}
         onChange={handleChange}
-        fullWidth
-        required
-        margin="normal"
+        fullWidth required margin="normal"
         InputLabelProps={{ shrink: true }}
       />
       <FormControlLabel
@@ -113,11 +117,8 @@ const RentalForm = ({ onAddRental, spaces = [] }) => {
         label="Evento recurrente"
       />
       <Button type="submit" variant="contained" color="primary">
-        Registrar Alquiler
+        {initialData ? (quick ? 'Siguiente' : 'Actualizar Alquiler') : (quick ? 'Siguiente' : 'Registrar Alquiler')}
       </Button>
     </Box>
   );
-};
-
-export default RentalForm;
-
+}

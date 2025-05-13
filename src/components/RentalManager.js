@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import RentalForm from './RentalForm';
-import { createCalendarEvent, deleteCalendarEvent } from '../services/calendarService';
+import { createCalendarEvent, deleteCalendarEvent, updateCalendarEvent } from '../services/calendarService';
 import { initCalendarTokenClient } from '../services/calendarTokenClient';
 import { toast } from 'react-toastify';
 import {
@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 
 // Formatea fecha local a 'YYYY-MM-DDTHH:mm:ss'
 const pad = (num) => String(num).padStart(2, '0');
@@ -39,6 +40,7 @@ const RentalManager = ({
   onEventSynced,
 }) => {
   const [rentals, setRentals] = useState([]);
+  const [editingRental, setEditingRental] = useState(null);
 
   // Carga inicial de alquileres
   const fetchRentals = async () => {
@@ -56,53 +58,62 @@ const RentalManager = ({
     fetchRentals();
   }, []);
 
-  // Registrar nuevo alquiler
-  const addRental = async (rentalData) => {
+  // Crear o actualizar alquiler
+  const saveRental = async (rentalData) => {
     try {
-      const res = await api.post('/rentals', rentalData);
-      const newRental = res.data;
+      let res;
+      if (editingRental) {
+        res = await api.patch(`/rentals/${editingRental._id}`, rentalData);
+      } else {
+        res = await api.post('/rentals', rentalData);
+      }
+      const saved = res.data;
 
+      // Calendar logic if token present
       if (calendarToken) {
         const startDate = new Date(rentalData.startTime);
         const endDate = new Date(startDate.getTime() + Number(rentalData.hours) * 3600000);
         const days = ['SU','MO','TU','WE','TH','FR','SA'];
         const dow = days[startDate.getDay()];
-
-        const selectedSpace = spaces.find(
-          (s) => s._id?.toString() === rentalData.space?.toString()
-        );
+        const selectedSpace = spaces.find(s => s._id?.toString() === rentalData.space?.toString());
         const colorId = selectedSpace?.color ? String(selectedSpace.color) : undefined;
-
         const eventData = {
-          summary: rentalData.activityName,
-          description: `Alquiler de ${selectedSpace?.name || rentalData.space} por ${rentalData.tenantName}`,
+          summary: saved.activityName,
+          description: `Alquiler de ${selectedSpace?.name} por ${saved.tenantName}`,
           start: { dateTime: formatLocalDateTime(startDate), timeZone: 'America/Costa_Rica' },
           end:   { dateTime: formatLocalDateTime(endDate),   timeZone: 'America/Costa_Rica' },
           ...(rentalData.isRecurring && { recurrence: [`RRULE:FREQ=WEEKLY;BYDAY=${dow}`] }),
           ...(colorId && { colorId }),
         };
-
         try {
-          const createdEvent = await createCalendarEvent(calendarToken, eventData);
-          toast.success('Evento creado en Google Calendar');
-          await api.patch(`/rentals/${newRental._id}`, { eventId: createdEvent.id });
-          newRental.eventId = createdEvent.id;
+          if (saved.eventId) {
+            // Update existing event
+            await updateCalendarEvent(calendarToken, saved.eventId, eventData);
+            toast.success('Evento actualizado en Google Calendar');
+          } else {
+            const ev = await createCalendarEvent(calendarToken, eventData);
+            await api.patch(`/rentals/${saved._id}`, { eventId: ev.id });
+            saved.eventId = ev.id;
+            toast.success('Evento creado en Google Calendar');
+          }
           onEventSynced?.();
         } catch (e) {
-          console.error('Error creando evento en Calendar:', e);
-          toast.error('No se pudo crear evento en Calendar');
+          console.error('Error en Calendar:', e);
+          toast.error('Error sincronizando con Calendar');
         }
-      } else {
-        toast.info('Alquiler guardado, falta conectar Calendar');
       }
 
-      const updated = [...rentals, newRental];
+      // Actualizar estado
+      const updated = editingRental
+        ? rentals.map(r => r._id === saved._id ? saved : r)
+        : [...rentals, saved];
       setRentals(updated);
       onRentalsUpdate?.(updated);
-      toast.success('Alquiler registrado exitosamente');
+      setEditingRental(null);
+      toast.success(editingRental ? 'Alquiler actualizado' : 'Alquiler registrado');
     } catch (err) {
-      console.error('Error al registrar alquiler:', err);
-      toast.error('Error al registrar alquiler');
+      console.error('Error al guardar alquiler:', err);
+      toast.error('Error al guardar alquiler');
     }
   };
 
@@ -110,30 +121,25 @@ const RentalManager = ({
   const deleteRental = async (rentalId, eventId) => {
     try {
       await api.delete(`/rentals/${rentalId}`);
-      const filtered = rentals.filter((r) => r._id !== rentalId);
+      const filtered = rentals.filter(r => r._id !== rentalId);
       setRentals(filtered);
       onRentalsUpdate?.(filtered);
       toast.success('Alquiler eliminado de la app');
 
       if (eventId) {
-        let token = calendarToken;
-        if (!token) {
-          token = await new Promise((resolve, reject) => {
-            const client = initCalendarTokenClient((resp) => {
-              resp.error ? reject(resp) : resolve(resp.access_token);
-            });
-            client.requestAccessToken();
-          });
-          setCalendarToken(token);
-          localStorage.setItem('calendarAccessToken', token);
-        }
+        let token = calendarToken || await new Promise((res, rej) => {
+          const client = initCalendarTokenClient(r => r.error ? rej(r) : res(r.access_token));
+          client.requestAccessToken();
+        });
+        setCalendarToken(token);
+        localStorage.setItem('calendarAccessToken', token);
         try {
           await deleteCalendarEvent(token, eventId);
           toast.success('Evento borrado de Google Calendar');
           onEventSynced?.();
         } catch (e) {
-          console.error('Error borrando evento en Calendar:', e);
-          toast.error('No se pudo borrar evento en Calendar');
+          console.error('Error borrando evento:', e);
+          toast.error('Error eliminando evento de Calendar');
         }
       }
     } catch (err) {
@@ -142,22 +148,33 @@ const RentalManager = ({
     }
   };
 
+  // Preparar edición
+  const handleEdit = (r) => {
+    setEditingRental(r);
+  };
+
   return (
     <div>
-      <Typography variant="h4" gutterBottom sx={{ mt: 3 }}>
+      <Typography variant="h4" sx={{ mt: 3 }}>
         Gestión de Alquileres
       </Typography>
 
-      <Accordion defaultExpanded={false}>
+      <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography>Registrar Alquiler</Typography>
+          <Typography>{editingRental ? 'Editar Alquiler' : 'Registrar Alquiler'}</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          <RentalForm onAddRental={addRental} spaces={spaces} />
+          <RentalForm
+            onAddRental={saveRental}
+            initialData={editingRental}
+            spaces={spaces}
+          />
         </AccordionDetails>
       </Accordion>
 
-      <Accordion defaultExpanded={false}>
+      <Divider sx={{ my: 2 }} />
+
+      <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography>Listado de Alquileres</Typography>
         </AccordionSummary>
@@ -166,22 +183,19 @@ const RentalManager = ({
             <Typography>No hay alquileres registrados.</Typography>
           ) : (
             <List>
-              {rentals.map((r) => {
-                const selectedSpace = spaces.find(
-                  (s) => s._id?.toString() === r.space?.toString()
-                );
-                const spaceName = selectedSpace ? selectedSpace.name : 'Sin espacio asignado';
+              {rentals.map(r => {
+                const selectedSpace = spaces.find(s => s._id?.toString() === r.space?.toString());
+                const spaceName = selectedSpace?.name || 'Sin espacio asignado';
                 return (
                   <ListItem key={r._id} divider>
                     <ListItemText
                       primary={`${r.activityName} — ${spaceName}`}
                       secondary={`Arrendatario: ${r.tenantName} | Horas: ${r.hours}`}
                     />
-                    <IconButton
-                      edge="end"
-                      aria-label="eliminar"
-                      onClick={() => deleteRental(r._id, r.eventId)}
-                    >
+                    <IconButton onClick={() => handleEdit(r)} sx={{ mr: 1 }}>
+                      <EditIcon color="primary" />
+                    </IconButton>
+                    <IconButton onClick={() => deleteRental(r._id, r.eventId)}>
                       <DeleteIcon color="error" />
                     </IconButton>
                   </ListItem>

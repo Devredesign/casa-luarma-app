@@ -25,16 +25,17 @@ export default function FinancialChart({ month, year, small }) {
   if (!data) return <Typography>Cargando gráfico…</Typography>;
 
   const chartData = {
-    labels: ['Clases', 'Alquileres', 'Costos Prof.', 'Ganancia bruta'],
+    labels: ['Clases', 'Alquileres', 'Costos Prof.','Operativos', 'Ganancia bruta'],
     datasets: [{
       label: `Resumen`,
       data: [
         data.incomeClasses,
         data.incomeRentals,
         data.costTeachers,
+        data.totalCosts,
         data.grossProfit
       ],
-      backgroundColor: ['#7ae7bf','#a4bdfc','#fbd75b','#dc2127']
+      backgroundColor: ['#7ae7bf','#a4bdfc','#fbd75b','#dc2127','#51b749'],
     }]
   };
 

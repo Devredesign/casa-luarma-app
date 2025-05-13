@@ -77,7 +77,7 @@ export default function ClassForm({
       isRecurring: false
     });
   };
-  console.log('modalities en ClassForm:', modalities);
+  
 
   return (
     <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>

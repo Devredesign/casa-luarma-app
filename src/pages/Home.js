@@ -1,62 +1,91 @@
 // src/components/Home.js
 import React from 'react';
-import { Container, Box, Typography, Button, Grid, Card, CardContent } from '@mui/material';
-
-const Home = () => {
+import {
+  Box,
+  Container,
+  Typography,
+  Button,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Grid,
+  Card,
+  CardContent
+} from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ChatLilo from '../components/ChatLilo';
+export default function Home({ onLoginClick, onQuickAction }) {
   return (
-    <Container maxWidth="lg" sx={{ mt: 4 }}>
-      {/* Sección Hero */}
-      <Box sx={{ textAlign: 'center', mb: 6 }}>
-        <Typography variant="h2" component="h1" gutterBottom>
-          Bienvenidos a Casa Luarma
-        </Typography>
-        <Typography variant="h5" component="h2" gutterBottom>
-          Espacios y clases de música y danza para que vivas la experiencia.
-        </Typography>
-        <Button variant="contained" size="large" color="primary">
-          Conoce Más
-        </Button>
+    <Box>
+      {/* HERO con CTA de Log In */}
+      <Box
+        sx={{
+          height: { xs: 300, md: 500 },
+          background: 'url(/hero-bg.jpg) center/cover no-repeat',
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'common.white',
+          textAlign: 'center',
+          px: 2
+        }}
+      >
+        <Box
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            bgcolor: 'rgba(0,0,0,0.6)'
+          }}
+        />
+        <Box sx={{ position: 'relative', zIndex: 1 }}>
+          <Typography variant="h2" gutterBottom>
+            Bienvenidos a Casa Luarma
+          </Typography>
+          <Typography variant="h5" gutterBottom>
+            Espacios y clases de música y danza para que vivas la experiencia.
+          </Typography>
+          <Button
+            variant="contained"
+            color="secondary"
+            size="large"
+            onClick={onLoginClick}
+            sx={{ mt: 3, px: 4 }}
+          >
+            Log In
+          </Button>
+        </Box>
       </Box>
 
-      {/* Sección de Información */}
-      <Grid container spacing={4}>
-        <Grid item xs={12} md={6}>
-          <Card elevation={3}>
-            <CardContent>
-              <Typography variant="h4" gutterBottom>
-                Nuestros Espacios
-              </Typography>
-              <Typography variant="body1">
-                Contamos con seis espacios diferentes para alquilar o para impartir clases, ya sea de música o danza. Todos ellos están diseñados para adaptarse a tus necesidades y brindar el ambiente perfecto para tus eventos.
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <Card elevation={3}>
-            <CardContent>
-              <Typography variant="h4" gutterBottom>
-                Clases y Eventos
-              </Typography>
-              <Typography variant="body1">
-                Ofrecemos una amplia variedad de clases, desde lecciones individuales hasta grupales. También puedes reservar nuestros espacios para eventos especiales. Nuestro sistema de gestión optimizado te permitirá coordinar horarios y pagos de manera sencilla.
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      <Container maxWidth="lg" sx={{ mt: 6, mb: 6 }}>
+        {/* Acordeón explicativo */}
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6">¿Cómo usar la aplicación?</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Typography paragraph>
+              1. Regístrate o inicia sesión.<br/>
+              2. Gestiona tus espacios, clases y pagos desde el Dashboard.<br/>
+              3. Conecta tu Google Calendar para ver tus eventos.<br/>
+              4. Usa el botón de “Acciones Rápidas” para matricular, alquilar o pagar en un clic.
+            </Typography>
+            <Typography paragraph>
+              Explora los distintos módulos: Espacios, Clases, Alquileres, Pagos, Estudiantes y Profesores.
+              Cada uno tiene su propio asistente y listado para CRUD rápido.
+            </Typography>
+          </AccordionDetails>
+        </Accordion>
 
-      {/* Sección de Contacto o Llamado a la Acción */}
-      <Box sx={{ textAlign: 'center', mt: 6 }}>
-        <Typography variant="h4" gutterBottom>
-          ¿Listo para comenzar?
+        {/* Sección de Lilo Asistente */}
+      <Container maxWidth="md" sx={{ mt: 4, mb: 6 }}>
+        <Typography variant="h4" align="center" gutterBottom>
+          Hablá con Lilo, tu asistente
         </Typography>
-        <Button variant="contained" size="large" color="secondary">
-          Contáctanos
-        </Button>
-      </Box>
-    </Container>
+        <ChatLilo />   {/* <-- aquí lo incrustás */}
+      </Container>
+       
+      </Container>
+    </Box>
   );
-};
-
-export default Home;
+}

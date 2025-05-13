@@ -16,9 +16,12 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper
+  Paper,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails
 } from '@mui/material';
-
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 const monthNames = [
   'Enero','Febrero','Marzo','Abril','Mayo','Junio',
   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
@@ -46,7 +49,11 @@ export default function TeacherPayouts() {
       <Typography variant="h4" gutterBottom>
         Desglose por Profesor
       </Typography>
-
+      <Accordion>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography>Ver Desglose</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
       {/* Filtros Mes/Año */}
       <Box sx={{ display:'flex', gap:2, mb:2 }}>
         <FormControl size="small">
@@ -111,6 +118,9 @@ export default function TeacherPayouts() {
           </Table>
         </TableContainer>
       )}
+      </AccordionDetails>
+      </Accordion>
     </Box>
+    
   );
 }

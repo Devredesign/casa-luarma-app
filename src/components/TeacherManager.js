@@ -19,6 +19,7 @@ import {
   Select,
   MenuItem,
 } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { toast } from 'react-toastify';
@@ -32,7 +33,7 @@ const TeacherManager = ({ onTeachersUpdate }) => {
     specialty: '',
     availability: '',
   });
-
+  const [editingTeacher, setEditingTeacher] = useState(null);
   const fetchTeachers = async () => {
     try {
       const res = await api.get('/teachers');
@@ -61,13 +62,39 @@ const TeacherManager = ({ onTeachersUpdate }) => {
       setTeachers(updated);
       onTeachersUpdate?.(updated);
       setFormData({ name: '', email: '', phone: '', specialty: '', availability: '' });
+      setEditingTeacher(null);
       toast.success('Profesor registrado exitosamente');
     } catch (err) {
       console.error('Error al registrar profesor:', err);
       toast.error('Error al registrar profesor');
     }
   };
-
+  const updateTeacher = async (id, teacherData) => {
+       try {
+         const res = await api.patch(`/teachers/${id}`, teacherData);
+         const updated = teachers.map(t => t._id === id ? res.data : t);
+         setTeachers(updated);
+         onTeachersUpdate?.(updated);
+         setEditingTeacher(null);
+         setFormData({ name: '', email: '', phone: '', specialty: '', availability: '' });
+         toast.success('Profesor actualizado exitosamente');
+       } catch (err) {
+         console.error('Error al actualizar profesor:', err);
+         toast.error('Error al actualizar profesor');
+       }
+     }; 
+  // 4. handleEdit para cargar el registro en el formulario
+  const handleEdit = (teacher) => {
+    setEditingTeacher(teacher);
+    setFormData({
+        name: teacher.name,
+        email: teacher.email,
+        phone: teacher.phone,
+        specialty: teacher.specialty,
+        availability: teacher.availability,
+        });
+      };
+        
   const deleteTeacher = async (id) => {
     try {
       await api.delete(`/teachers/${id}`);
@@ -92,7 +119,12 @@ const TeacherManager = ({ onTeachersUpdate }) => {
           <Typography>Registrar Profesor</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          <Box component="form" onSubmit={addTeacher} sx={{ mt: 2 }}>
+        <Box component="form"
+         onSubmit={editingTeacher
+            ? (e) => { e.preventDefault(); updateTeacher(editingTeacher._id, formData); }
+            : addTeacher
+         }
+         sx={{ mt: 2 }}>
             <TextField
               label="Nombre"
               name="name"
@@ -137,7 +169,7 @@ const TeacherManager = ({ onTeachersUpdate }) => {
               margin="normal"
             />
             <Button type="submit" variant="contained" sx={{ mt: 1 }}>
-              Registrar
+            {editingTeacher ? 'Actualizar' : 'Registrar'}
             </Button>
           </Box>
         </AccordionDetails>
@@ -158,6 +190,14 @@ const TeacherManager = ({ onTeachersUpdate }) => {
                     primary={teacher.name}
                     secondary={`${teacher.email} | ${teacher.phone} | Especialidad: ${teacher.specialty} | Disponibilidad: ${teacher.availability}`}
                   />
+                  <IconButton
+                    edge="end"
+                    aria-label="editar"
+                    onClick={() => handleEdit(teacher)}
+                    sx={{ mr: 1 }}
+                  >
+                  <EditIcon color="primary" />
+                  </IconButton>
                   <IconButton
                     edge="end"
                     aria-label="eliminar"

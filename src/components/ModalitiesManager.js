@@ -14,67 +14,69 @@ import {
   Divider
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import DeleteIcon     from '@mui/icons-material/Delete';
-import EditIcon       from '@mui/icons-material/Edit';
-import { toast }      from 'react-toastify';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
+import { toast } from 'react-toastify';
 
-export default function ModalitiesManager() {
+export default function ModalitiesManager({ onModalitiesUpdate }) {
   const [modalities, setModalities] = useState([]);
-  const [editing, setEditing]       = useState(null);
+  const [editingModality, setEditingModality] = useState(null);
 
   // Carga de modalidades
   useEffect(() => {
     let isActive = true;
-
     async function loadModalities() {
       try {
         const res = await api.get('/modalities');
-        if (isActive) setModalities(res.data);
+        if (isActive) {
+          setModalities(res.data || []);
+          onModalitiesUpdate?.(res.data || []);
+        }
       } catch (err) {
         toast.error('Error cargando modalidades');
       }
     }
-
     loadModalities();
+    return () => { isActive = false; };
+  }, [onModalitiesUpdate]);
 
-    return () => {
-      // Evita actualizar el estado si el componente se desmonta
-      isActive = false;
-    };
-  }, []);
-
-  // Agregar nueva modalidad
-  const addModality = async data => {
+  // Crear o actualizar modalidad
+  const saveModality = async (data) => {
     try {
-      const res = await api.post('/modalities', data);
-      setModalities(m => [...m, res.data]);
-      toast.success('Modalidad agregada');
+      let res;
+      if (editingModality) {
+        res = await api.patch(`/modalities/${editingModality._id}`, data);
+      } else {
+        res = await api.post('/modalities', data);
+      }
+      const saved = res.data;
+      const updated = editingModality
+        ? modalities.map(m => m._id === saved._id ? saved : m)
+        : [...modalities, saved];
+      setModalities(updated);
+      onModalitiesUpdate?.(updated);
+      setEditingModality(null);
+      toast.success(editingModality ? 'Modalidad actualizada' : 'Modalidad agregada');
     } catch (err) {
-      toast.error('Error agregando modalidad');
-    }
-  };
-
-  // Actualizar modalidad existente
-  const updateModality = async (id, data) => {
-    try {
-      const res = await api.patch(`/modalities/${id}`, data);
-      setModalities(m => m.map(x => x._id === id ? res.data : x));
-      setEditing(null);
-      toast.success('Modalidad actualizada');
-    } catch (err) {
-      toast.error('Error actualizando modalidad');
+      toast.error(editingModality ? 'Error actualizando modalidad' : 'Error agregando modalidad');
     }
   };
 
   // Eliminar modalidad
-  const deleteModality = async id => {
+  const deleteModality = async (id) => {
     try {
       await api.delete(`/modalities/${id}`);
-      setModalities(m => m.filter(x => x._id !== id));
+      const updated = modalities.filter(m => m._id !== id);
+      setModalities(updated);
+      onModalitiesUpdate?.(updated);
       toast.success('Modalidad eliminada');
     } catch (err) {
       toast.error('Error eliminando modalidad');
     }
+  };
+
+  const handleEdit = (modality) => {
+    setEditingModality(modality);
   };
 
   return (
@@ -85,45 +87,45 @@ export default function ModalitiesManager() {
 
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography>
-            {editing ? 'Editar Modalidad' : 'Nueva Modalidad'}
-          </Typography>
+          <Typography>{editingModality ? 'Editar Modalidad' : 'Nueva Modalidad'}</Typography>
         </AccordionSummary>
         <AccordionDetails>
           <ModalityForm
-            initial={editing}
-            onSubmit={editing ? data => updateModality(editing._id, data) : addModality}
+            initial={editingModality || undefined}
+            onSubmit={saveModality}
           />
         </AccordionDetails>
       </Accordion>
 
+      <Divider sx={{ my: 2 }} />
+
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography>
-            Listado de Modalidades
-          </Typography>
+          <Typography>Listado de Modalidades</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          <List>
-            {modalities.map(m => (
-            <ListItem key={m._id} divider>
-                <ListItemText
-                primary={m.name}
-                secondary={`₡ ${m.price.toLocaleString()}`}
-                />
-                <IconButton onClick={() => setEditing(m)}>
-                <EditIcon color="primary" />
-                </IconButton>
-                <IconButton onClick={() => deleteModality(m._id)}>
-                <DeleteIcon color="error" />
-                </IconButton>
-            </ListItem>
-            ))}
+          {modalities.length === 0 ? (
+            <Typography>No hay modalidades registradas.</Typography>
+          ) : (
+            <List>
+              {modalities.map(m => (
+                <ListItem key={m._id} divider>
+                  <ListItemText
+                    primary={m.name}
+                    secondary={`₡ ${m.price.toLocaleString()}`}
+                  />
+                  <IconButton onClick={() => handleEdit(m)} sx={{ mr: 1 }}>
+                    <EditIcon color="primary" />
+                  </IconButton>
+                  <IconButton onClick={() => deleteModality(m._id)}>
+                    <DeleteIcon color="error" />
+                  </IconButton>
+                </ListItem>
+              ))}
             </List>
+          )}
         </AccordionDetails>
       </Accordion>
-      
     </div>
   );
 }
-

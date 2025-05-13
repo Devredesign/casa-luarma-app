@@ -1,8 +1,8 @@
 // src/components/SpaceForm.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, TextField, Button, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 
-const SpaceForm = ({ onAddSpace }) => {
+export default function SpaceForm({ onAddSpace, onSave, initialData }) {
   const [formData, setFormData] = useState({
     name: '',
     pricePerHour: '',
@@ -11,6 +11,19 @@ const SpaceForm = ({ onAddSpace }) => {
     color: ''
   });
 
+  // Sync for edit mode
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        name: initialData.name || '',
+        pricePerHour: initialData.pricePerHour?.toString() || '',
+        squareMeters: initialData.squareMeters?.toString() || '',
+        description: initialData.description || '',
+        color: initialData.color?.toString() || ''
+      });
+    }
+  }, [initialData]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -18,20 +31,23 @@ const SpaceForm = ({ onAddSpace }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onAddSpace(formData);
-    setFormData({
-      name: '',
-      pricePerHour: '',
-      squareMeters: '',
-      description: '',
-      color: ''
-    });
+    const payload = {
+      ...formData,
+      pricePerHour: Number(formData.pricePerHour),
+      squareMeters: Number(formData.squareMeters)
+    };
+    if (initialData) {
+      onSave?.(payload);
+    } else {
+      onAddSpace(payload);
+      setFormData({ name: '', pricePerHour: '', squareMeters: '', description: '', color: '' });
+    }
   };
 
   return (
     <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
       <Typography variant="h6" gutterBottom>
-        Registrar un Espacio
+        {initialData ? 'Editar Espacio' : 'Registrar un Espacio'}
       </Typography>
       <TextField
         label="Nombre del Espacio"
@@ -78,23 +94,18 @@ const SpaceForm = ({ onAddSpace }) => {
           onChange={handleChange}
           label="Color"
         >
-          <MenuItem value="">
-            <em>Seleccione un color</em>
-          </MenuItem>
+          <MenuItem value=""><em>Seleccione un color</em></MenuItem>
           <MenuItem value="9">Azul</MenuItem>
           <MenuItem value="10">Verde</MenuItem>
           <MenuItem value="11">Rojo</MenuItem>
           <MenuItem value="6">Naranja</MenuItem>
           <MenuItem value="3">Morado</MenuItem>
           <MenuItem value="5">Amarillo</MenuItem>
-          {/* Agrega más opciones si lo deseas */}
         </Select>
       </FormControl>
       <Button type="submit" variant="contained" color="primary">
-        Guardar Espacio
+        {initialData ? 'Actualizar Espacio' : 'Guardar Espacio'}
       </Button>
     </Box>
   );
-};
-
-export default SpaceForm;
+}

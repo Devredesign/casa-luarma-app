@@ -1,5 +1,5 @@
 // src/components/AdminDashboard.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Typography,
   Button,
@@ -9,7 +9,9 @@ import {
   Box
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-
+import QuickActionDialog from './QuickActionDialog';
+import { Fab } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 import SpacesManager       from './SpacesManager';
 import TeacherManager      from './TeacherManager';
 import StudentsManager     from './StudentsManager';
@@ -36,11 +38,29 @@ export default function AdminDashboard() {
   const [rentals, setRentals]     = useState([]);
   const [modalities, setModalities] = useState([]);
   const [payments, setPayments]   = useState([]);
+  const [costs, setCosts]   = useState([]);
   const [financeRefresh, setFinanceRefresh] = useState(0);
 
   const [calendarToken, setCalendarToken] = useState(null);
   const [refreshCal, setRefreshCal]       = useState(false);
-
+  // 1. Callbacks estables con useCallback
+  const handleClassesUpdate = useCallback((cls) => {
+    setClasses(cls);
+    setFinanceRefresh(f => f + 1);
+  }, []);
+   const handlePaymentsUpdate = useCallback((p) => {
+    setPayments(p);
+    setFinanceRefresh(f => f + 1);
+  }, []);
+  
+  const handleRentalsUpdate = useCallback((r) => {
+    setRentals(r);
+    setFinanceRefresh(f => f + 1);
+  }, []);
+  const handleCostsUpdate = useCallback((c) => {
+    setCosts(c);
+  }, []);
+  
   // Cargar datos maestros
   useEffect(() => {
     api.get('/teachers').then(r => setTeachers(r.data)).catch(() => toast.error('Error cargando profesores'));
@@ -49,6 +69,7 @@ export default function AdminDashboard() {
     api.get('/classes').then(r => setClasses(r.data)).catch(() => toast.error('Error cargando clases'));
     api.get('/rentals').then(r => setRentals(r.data)).catch(() => toast.error('Error cargando alquileres'));
     api.get('/modalities').then(r => setModalities(r.data)).catch(() => toast.error('Error cargando modalidades'));
+    api.get('/costs').then(r => setCosts(r.data)).catch(() => toast.error('Error cargando costos'));
     // restaurar token si existe
     const saved = localStorage.getItem('calendarAccessToken');
     if (saved) setCalendarToken(saved);
@@ -79,7 +100,8 @@ export default function AdminDashboard() {
 
   // Fuerza refresco de calendario
   const onCalendarChange = () => setRefreshCal(f => !f);
-
+  // Quick action button state
+  const [qaOpen, setQaOpen] = useState(false);
   // —————————————— Tabs ——————————————
   const [tabIndex, setTabIndex] = useState(0);
   const handleTabChange = (_, newIndex) => {
@@ -107,7 +129,21 @@ export default function AdminDashboard() {
       >
         Conectar con Google Calendar
       </Button>
-
+      {/*Quick action button state*/}
+      <Fab 
+        color="primary" 
+        onClick={() => setQaOpen(true)} 
+        sx={{ position: 'fixed', bottom: 16, right: 16 }}
+      >
+        <AddIcon />
+      </Fab>
+      <QuickActionDialog 
+        open={qaOpen} 
+        onClose={() => setQaOpen(false)} 
+        spaces={spaces} 
+        classesList={classes} 
+        students={students}
+      />
       {/* ————— Tabs de grupos ————— */}
       <Tabs
         value={tabIndex}
@@ -124,7 +160,8 @@ export default function AdminDashboard() {
       <TabPanel value={tabIndex} index={0}>
         {/* Matrícula */}
         
-        <StudentsManager />
+        <StudentsManager 
+        onStudentsUpdate={setStudents}/>
 
         <ClassesManager
           teachers={teachers}
@@ -132,24 +169,20 @@ export default function AdminDashboard() {
           modalities={modalities}
           calendarToken={calendarToken}
           setCalendarToken={setCalendarToken}
-          onClassesUpdate={cls => {
-            setClasses(cls);
-            setFinanceRefresh(f => f + 1);
-          }}
+          onClassesUpdate={handleClassesUpdate}
           refreshCalendar={onCalendarChange}
         />
 
-        <ModalitiesManager />
+        <ModalitiesManager
+          onModalitiesUpdate={setModalities}
+        />
         
         <TeacherManager onTeachersUpdate={setTeachers} />
 
         <PaymentManager
           classesList={classes}
           students={students}
-          onPaymentsUpdate={p => {
-            setPayments(p);
-            setFinanceRefresh(f => f + 1);
-          }}
+          onPaymentsUpdate={handlePaymentsUpdate}
         />
       </TabPanel>
 
@@ -160,21 +193,17 @@ export default function AdminDashboard() {
           spaces={spaces}
           calendarToken={calendarToken}
           setCalendarToken={setCalendarToken}
-          onRentalsUpdate={r => {
-            setRentals(r);
-            setFinanceRefresh(f => f + 1);
-          }}
+          onRentalsUpdate={handleRentalsUpdate}
           refreshCalendar={onCalendarChange}
         />
 
-        <SpacesManager />
+        <SpacesManager onSpacesUpdate={setSpaces}/>
 
       </TabPanel>
 
       <TabPanel value={tabIndex} index={2}>
         {/* Finanzas */}
-       <TeacherPayouts />
-       
+
         <FinancialSummary
           month={new Date().getMonth() + 1}
           year={new Date().getFullYear()}
@@ -182,8 +211,9 @@ export default function AdminDashboard() {
         />
         <Divider sx={{ my: 2 }} />
         
-        <CostsManager />
-        
+        <TeacherPayouts />
+
+        <CostsManager onCostsUpdate={handleCostsUpdate} />
       </TabPanel>
     </Box>
   );

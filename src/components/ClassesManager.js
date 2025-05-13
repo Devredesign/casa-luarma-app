@@ -48,7 +48,7 @@ export default function ClassesManager({
       }
     }
     fetch();
-  }, [onClassesUpdate]);
+  }, []);
 
   const saveClass = async data => {
     try {
@@ -149,7 +149,6 @@ export default function ClassesManager({
       toast.error('Error eliminando clase');
     }
   };
-  console.log('props.modalities en ClassesManager:', modalities);
   return (
     <div>
       <Typography variant="h4" sx={{ mt: 3 }}>
