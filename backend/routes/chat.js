@@ -1,16 +1,13 @@
-/ server/routes/chat.js
 import { Router } from 'express';
 import { Configuration, OpenAIApi } from 'openai';
 
 const router = Router();
-
-// Inicializa cliente de OpenAI
 const openai = new OpenAIApi(
   new Configuration({ apiKey: process.env.OPENAI_API_KEY })
 );
 
-// Ahora la ruta es POST /chat
-router.post('/chat', async (req, res) => {
+// POST /api/chat
+router.post('/', async (req, res) => {
   const { messages } = req.body;
   try {
     const completion = await openai.createChatCompletion({
@@ -20,7 +17,7 @@ router.post('/chat', async (req, res) => {
     });
     res.json({ message: completion.data.choices[0].message.content });
   } catch (err) {
-    console.error('Error en /api/chat:', err);
+    console.error(err);
     res.status(500).json({ error: 'Error al contactar a Lilo' });
   }
 });

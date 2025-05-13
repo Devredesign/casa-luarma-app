@@ -27,19 +27,22 @@ export default function ChatLilo() {
 
   const handleSend = async () => {
     if (!input.trim()) return;
-
+  
+    // 1) Añadimos tu mensaje de usuario
     const updated = [...messages, { role: "user", content: input.trim() }];
     setMessages(updated);
     setInput("");
-
+  
     try {
+      // 2) Llamamos solo con Axios a /api/chat (o /chat, según tu baseURL)
       const { data } = await api.post("/chat", { messages: updated });
+      // 3) Añadimos la respuesta de Lilo
       setMessages([...updated, { role: "assistant", content: data.message }]);
     } catch (err) {
       console.error(err);
       setMessages([
         ...updated,
-        { role: "assistant", content: "Ups, hubo un error comunicándome con Lilo." },
+        { role: "assistant", content: "Oops, hubo un error comunicándome con Lilo." }
       ]);
     }
   };
