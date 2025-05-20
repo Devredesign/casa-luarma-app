@@ -8,7 +8,12 @@ import chatRouter from './routes/chat.js';  // <- ruta correctamente exportada
 dotenv.config();
 
 const app = express();
-app.use(cors());
+app.use(cors({
+    origin: [
+      'https://casa-luarma-app.vercel.app',
+      'http://localhost:3000'
+    ]
+  }));
 app.use(express.json());
 
 // monta /api/chat
