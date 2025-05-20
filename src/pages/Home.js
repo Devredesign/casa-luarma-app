@@ -13,6 +13,8 @@ import {
   CardContent
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ChatLilo from '../components/ChatLilo';
+
 export default function Home({ onLoginClick, onQuickAction }) {
   return (
     <Box>
@@ -76,7 +78,12 @@ export default function Home({ onLoginClick, onQuickAction }) {
             </Typography>
           </AccordionDetails>
         </Accordion>
-
+      
+        {/* → Aquí incrusto el chat de Lilo */}
+        <Typography variant="h4" sx={{ mt:6, textAlign:'center' }}>
+          Hablá con Lilo, tu asistente de Casa Luarma
+        </Typography>
+        <ChatLilo />
         
        
       </Container>

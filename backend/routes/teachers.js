@@ -25,6 +25,25 @@ router.post('/', async (req, res) => {
   }
 });
 
+// Actualizar un profesor existente
+router.patch('/:id', async (req, res) => {
+  const updates = req.body;
+  try {
+    const updatedTeacher = await Teacher.findByIdAndUpdate(
+      req.params.id,
+      updates,
+      { new: true, runValidators: true }
+    );
+    if (!updatedTeacher) {
+      return res.status(404).json({ message: 'Profesor no encontrado' });
+    }
+    res.json(updatedTeacher);
+  } catch (err) {
+    console.error('Error al actualizar profesor:', err);
+    res.status(400).json({ message: err.message });
+  }
+});
+
 // Eliminar un profesor
 router.delete('/:id', async (req, res) => {
   try {

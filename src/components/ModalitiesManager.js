@@ -97,7 +97,6 @@ export default function ModalitiesManager({ onModalitiesUpdate }) {
         </AccordionDetails>
       </Accordion>
 
-      <Divider sx={{ my: 2 }} />
 
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>

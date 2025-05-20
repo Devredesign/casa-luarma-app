@@ -13,15 +13,10 @@ import {
   ListItem,
   ListItemText,
   IconButton,
-  Divider,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
 } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import { toast } from 'react-toastify';
 
 const TeacherManager = ({ onTeachersUpdate }) => {
@@ -34,6 +29,8 @@ const TeacherManager = ({ onTeachersUpdate }) => {
     availability: '',
   });
   const [editingTeacher, setEditingTeacher] = useState(null);
+
+  // Fetch teachers
   const fetchTeachers = async () => {
     try {
       const res = await api.get('/teachers');
@@ -49,11 +46,13 @@ const TeacherManager = ({ onTeachersUpdate }) => {
     fetchTeachers();
   }, []);
 
+  // Handle form field changes
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Add new teacher
   const addTeacher = async (e) => {
     e.preventDefault();
     try {
@@ -61,44 +60,39 @@ const TeacherManager = ({ onTeachersUpdate }) => {
       const updated = [...teachers, res.data];
       setTeachers(updated);
       onTeachersUpdate?.(updated);
-      setFormData({ name: '', email: '', phone: '', specialty: '', availability: '' });
-      setEditingTeacher(null);
       toast.success('Profesor registrado exitosamente');
+      // Reset form
+      setFormData({ name: '', email: '', phone: '', specialty: '', availability: '' });
     } catch (err) {
       console.error('Error al registrar profesor:', err);
       toast.error('Error al registrar profesor');
     }
   };
-  const updateTeacher = async (id, teacherData) => {
-       try {
-         const res = await api.patch(`/teachers/${id}`, teacherData);
-         const updated = teachers.map(t => t._id === id ? res.data : t);
-         setTeachers(updated);
-         onTeachersUpdate?.(updated);
-         setEditingTeacher(null);
-         setFormData({ name: '', email: '', phone: '', specialty: '', availability: '' });
-         toast.success('Profesor actualizado exitosamente');
-       } catch (err) {
-         console.error('Error al actualizar profesor:', err);
-         toast.error('Error al actualizar profesor');
-       }
-     }; 
-  // 4. handleEdit para cargar el registro en el formulario
-  const handleEdit = (teacher) => {
-    setEditingTeacher(teacher);
-    setFormData({
-        name: teacher.name,
-        email: teacher.email,
-        phone: teacher.phone,
-        specialty: teacher.specialty,
-        availability: teacher.availability,
-        });
-      };
-        
+
+  // Update existing teacher
+  const updateTeacher = async (e) => {
+    e.preventDefault();
+    if (!editingTeacher) return;
+    try {
+      const res = await api.patch(`/teachers/${editingTeacher._id}`, formData);
+      const updated = teachers.map(t => t._id === editingTeacher._id ? res.data : t);
+      setTeachers(updated);
+      onTeachersUpdate?.(updated);
+      toast.success('Profesor actualizado exitosamente');
+      // Reset
+      setEditingTeacher(null);
+      setFormData({ name: '', email: '', phone: '', specialty: '', availability: '' });
+    } catch (err) {
+      console.error('Error al actualizar profesor:', err);
+      toast.error('Error al actualizar profesor');
+    }
+  };
+
+  // Delete teacher
   const deleteTeacher = async (id) => {
     try {
       await api.delete(`/teachers/${id}`);
-      const updated = teachers.filter((t) => t._id !== id);
+      const updated = teachers.filter(t => t._id !== id);
       setTeachers(updated);
       onTeachersUpdate?.(updated);
       toast.success('Profesor eliminado exitosamente');
@@ -106,6 +100,18 @@ const TeacherManager = ({ onTeachersUpdate }) => {
       console.error('Error al eliminar profesor:', err);
       toast.error('Error al eliminar profesor');
     }
+  };
+
+  // Populate form for editing
+  const handleEdit = (teacher) => {
+    setEditingTeacher(teacher);
+    setFormData({
+      name: teacher.name || '',
+      email: teacher.email || '',
+      phone: teacher.phone || '',
+      specialty: teacher.specialty || '',
+      availability: teacher.availability || '',
+    });
   };
 
   return (
@@ -116,15 +122,12 @@ const TeacherManager = ({ onTeachersUpdate }) => {
 
       <Accordion defaultExpanded={false}>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography>Registrar Profesor</Typography>
+          <Typography>
+            {editingTeacher ? 'Editar Profesor' : 'Registrar Profesor'}
+          </Typography>
         </AccordionSummary>
         <AccordionDetails>
-        <Box component="form"
-         onSubmit={editingTeacher
-            ? (e) => { e.preventDefault(); updateTeacher(editingTeacher._id, formData); }
-            : addTeacher
-         }
-         sx={{ mt: 2 }}>
+          <Box component="form" onSubmit={editingTeacher ? updateTeacher : addTeacher} sx={{ mt: 2 }}>
             <TextField
               label="Nombre"
               name="name"
@@ -169,8 +172,20 @@ const TeacherManager = ({ onTeachersUpdate }) => {
               margin="normal"
             />
             <Button type="submit" variant="contained" sx={{ mt: 1 }}>
-            {editingTeacher ? 'Actualizar' : 'Registrar'}
+              {editingTeacher ? 'Actualizar' : 'Registrar'}
             </Button>
+            {editingTeacher && (
+              <Button
+                variant="text"
+                sx={{ mt: 1, ml: 2 }}
+                onClick={() => {
+                  setEditingTeacher(null);
+                  setFormData({ name: '', email: '', phone: '', specialty: '', availability: '' });
+                }}
+              >
+                Cancelar
+              </Button>
+            )}
           </Box>
         </AccordionDetails>
       </Accordion>
@@ -190,19 +205,10 @@ const TeacherManager = ({ onTeachersUpdate }) => {
                     primary={teacher.name}
                     secondary={`${teacher.email} | ${teacher.phone} | Especialidad: ${teacher.specialty} | Disponibilidad: ${teacher.availability}`}
                   />
-                  <IconButton
-                    edge="end"
-                    aria-label="editar"
-                    onClick={() => handleEdit(teacher)}
-                    sx={{ mr: 1 }}
-                  >
-                  <EditIcon color="primary" />
+                  <IconButton edge="end" aria-label="editar" onClick={() => handleEdit(teacher)}>
+                    <EditIcon color="primary" />
                   </IconButton>
-                  <IconButton
-                    edge="end"
-                    aria-label="eliminar"
-                    onClick={() => deleteTeacher(teacher._id)}
-                  >
+                  <IconButton edge="end" aria-label="eliminar" onClick={() => deleteTeacher(teacher._id)}>
                     <DeleteIcon color="error" />
                   </IconButton>
                 </ListItem>
