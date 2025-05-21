@@ -1,5 +1,6 @@
 // src/components/Home.js
 import React from 'react';
+import { useEffect } from 'react';
 import {
   Box,
   Container,
@@ -16,6 +17,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChatLilo from '../components/ChatLilo';
 
 export default function Home({ onLoginClick, onQuickAction }) {
+  useEffect(() => console.log('[Home] ChatLilo montado'), []);
   return (
     <Box>
       {/* HERO con CTA de Log In */}
