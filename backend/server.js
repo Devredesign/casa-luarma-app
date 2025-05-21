@@ -3,6 +3,7 @@ require('dotenv').config();  // Carga variables de entorno
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const chatRouter = require('./routes/chat'); // Ruta para ChatGPT
 const app = express();
 
 // Conectar a MongoDB Atlas usando la URI desde .env
@@ -15,7 +16,12 @@ mongoose.connect(mongoUri, {
 .catch(err => console.error('❌ Error al conectar a MongoDB Atlas:', err));
 
 // Middlewares
-app.use(cors());
+app.use(cors({origin: [
+  'https://casa-luarma-app.vercel.app',
+  'http://localhost:3000'
+],
+methods: ['GET','POST','PATCH','DELETE','OPTIONS'],
+allowedHeaders: ['Content-Type','Authorization'],}));
 app.use(express.json());
 
 // Rutas existentes
@@ -29,8 +35,7 @@ app.use('/api/finance', require('./routes/finance'));
 app.use('/api/finance/teachers', require('./routes/financeTeachers'));
 app.use('/api/costs', require('./routes/costs'));
 app.use('/api/students', require('./routes/students')); // Estudiantes
-
-
+app.use('/api/chat', chatRouter); // ChatGPT
 
 // Error handler genérico (opcional)
 app.use((err, req, res, next) => {

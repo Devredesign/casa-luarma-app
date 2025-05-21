@@ -27,7 +27,7 @@ export default function ChatLilo() {
   };
 
   return (
-    <Paper sx={{ p:2, maxWidth:600, mx:'auto', height:400, overflowY:'auto', mt:4 }}>
+    <Paper sx={{ p:2, maxWidth:800, mx:'auto', height:400, overflowY:'auto', mt:4 }}>
       {msgs.filter(m=>m.role!=='system').map((m,i) => (
         <Box key={i} sx={{
           display:'flex',
