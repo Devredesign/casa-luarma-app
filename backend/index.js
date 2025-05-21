@@ -12,8 +12,11 @@ app.use(cors({
     origin: [
       'https://casa-luarma-app.vercel.app',
       'http://localhost:3000'
-    ]
-  }));
+    ],
+    methods: ['GET','POST','OPTIONS'],
+    allowedHeaders: ['Content-Type','Authorization']
+}));
+
 app.use(express.json());
 
 // monta /api/chat
