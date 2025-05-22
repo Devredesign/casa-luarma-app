@@ -1,12 +1,8 @@
 // backend/routes/chat.js
 const express = require('express');
 const router = express.Router();
-const { Configuration, OpenAIApi } = require('openai');
-
-// Configura OpenAI con tu clave secreta en .env
-const openai = new OpenAIApi(
-  new Configuration({ apiKey: process.env.OPENAI_API_KEY })
-);
+const OpenAI = require('openai');
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // POST /api/chat
 // Recibe un array de mensajes y devuelve la respuesta de GPT
@@ -18,12 +14,12 @@ router.post('/', async (req, res) => {
   console.log('[chat.js] mensajes recibidos:', messages);
   try {
     console.log('[chat.js] llamando a OpenAI...');
-    const completion = await openai.createChatCompletion({
+    const completion = await openai.chat.completions.create({
       model: 'gpt-4',
       messages,
       temperature: 0.7,
     });
-    const reply = completion.data.choices[0].message.content;
+    const reply = completion.choices[0].message.content;
     console.log('[chat.js] respuesta de OpenAI:', reply);
     res.json({ message: reply });
   } catch (err) {
