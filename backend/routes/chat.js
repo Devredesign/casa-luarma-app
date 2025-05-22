@@ -1,11 +1,9 @@
 // backend/routes/chat.js
-import { Router } from 'express';
-import { Configuration, OpenAIApi } from 'openai';
+const express = require('express');
+const router = express.Router();
+const { Configuration, OpenAIApi } = require('openai');
 
-// Inicializar router
-const router = Router();
-
-// Configurar OpenAI con la clave en .env
+// Configura OpenAI con tu clave secreta en .env
 const openai = new OpenAIApi(
   new Configuration({ apiKey: process.env.OPENAI_API_KEY })
 );
@@ -17,19 +15,21 @@ router.post('/', async (req, res) => {
   if (!Array.isArray(messages)) {
     return res.status(400).json({ error: 'messages debe ser un array' });
   }
-
+  console.log('[chat.js] mensajes recibidos:', messages);
   try {
+    console.log('[chat.js] llamando a OpenAI...');
     const completion = await openai.createChatCompletion({
       model: 'gpt-4',
       messages,
       temperature: 0.7,
     });
     const reply = completion.data.choices[0].message.content;
+    console.log('[chat.js] respuesta de OpenAI:', reply);
     res.json({ message: reply });
   } catch (err) {
-    console.error('Error al llamar a OpenAI:', err);
+    console.error('[chat.js] error OpenAI:', err);
     res.status(500).json({ error: 'Error al contactar a Lilo' });
   }
 });
 
-export default router;
+module.exports = router;
