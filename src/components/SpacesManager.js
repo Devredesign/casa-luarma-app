@@ -22,7 +22,7 @@ const SpacesManager = ({ onSpacesUpdate }) => {
   const [spaces, setSpaces] = useState([]);
   const [editingSpace, setEditingSpace] = useState(null);
 
-  // Función para obtener los espacios del backend
+  // Obtener espacios
   const fetchSpaces = async () => {
     try {
       const response = await api.get('/spaces');
@@ -34,11 +34,9 @@ const SpacesManager = ({ onSpacesUpdate }) => {
     }
   };
 
-  useEffect(() => {
-    fetchSpaces();
-  }, []);
+  useEffect(fetchSpaces, []);
 
-  // Función para agregar un nuevo espacio
+  // Crear espacio
   const addSpace = async (spaceData) => {
     try {
       const dataToSend = {
@@ -46,11 +44,11 @@ const SpacesManager = ({ onSpacesUpdate }) => {
         pricePerHour: Number(spaceData.pricePerHour),
         squareMeters: Number(spaceData.squareMeters)
       };
-
       const response = await api.post('/spaces', dataToSend);
       const newSpace = response.data;
-      setSpaces(prev => [...prev, newSpace]);
-      onSpacesUpdate?.([...spaces, newSpace]);
+      const updated = [...spaces, newSpace];
+      setSpaces(updated);
+      onSpacesUpdate?.(updated);
       toast.success('Espacio registrado exitosamente');
       setEditingSpace(null);
     } catch (error) {
@@ -59,7 +57,7 @@ const SpacesManager = ({ onSpacesUpdate }) => {
     }
   };
 
-  // Función para actualizar un espacio
+  // Actualizar espacio existente
   const updateSpace = async (id, spaceData) => {
     try {
       const dataToSend = {
@@ -79,13 +77,13 @@ const SpacesManager = ({ onSpacesUpdate }) => {
     }
   };
 
-  // Función para eliminar un espacio
+  // Eliminar espacio
   const deleteSpace = async (id) => {
     try {
       await api.delete(`/spaces/${id}`);
-      const updatedSpaces = spaces.filter((space) => space._id !== id);
-      setSpaces(updatedSpaces);
-      onSpacesUpdate?.(updatedSpaces);
+      const updated = spaces.filter(s => s._id !== id);
+      setSpaces(updated);
+      onSpacesUpdate?.(updated);
       toast.success('Espacio eliminado exitosamente');
     } catch (error) {
       console.error('Error al eliminar espacio:', error);
@@ -93,10 +91,8 @@ const SpacesManager = ({ onSpacesUpdate }) => {
     }
   };
 
-  // Cargar espacio en edición
-  const handleEdit = (space) => {
-    setEditingSpace(space);
-  };
+  // Cargar espacio para edición
+  const handleEdit = (space) => setEditingSpace(space);
 
   return (
     <div>
@@ -104,7 +100,7 @@ const SpacesManager = ({ onSpacesUpdate }) => {
         Gestión de Espacios
       </Typography>
 
-      <Accordion defaultExpanded={false}>
+      <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography>
             {editingSpace ? 'Editar Espacio' : 'Registrar Nuevo Espacio'}
@@ -112,13 +108,14 @@ const SpacesManager = ({ onSpacesUpdate }) => {
         </AccordionSummary>
         <AccordionDetails>
           <SpaceForm
-            onSave={editingSpace ? (data) => updateSpace(editingSpace._id, data) : addSpace}
+            onAddSpace={addSpace}                          // prop para creación
+            onSave={editingSpace ? data => updateSpace(editingSpace._id, data) : undefined} // prop para edición
             initialData={editingSpace || undefined}
           />
         </AccordionDetails>
       </Accordion>
 
-      <Accordion defaultExpanded={false}>
+      <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography>Listado de Espacios</Typography>
         </AccordionSummary>
@@ -127,22 +124,19 @@ const SpacesManager = ({ onSpacesUpdate }) => {
             <Typography>No hay espacios registrados.</Typography>
           ) : (
             <List>
-              {spaces.map((space) => (
+              {spaces.map(space => (
                 <ListItem key={space._id} divider>
                   <ListItemText
                     primary={space.name}
                     secondary={
-                      <>
-                        Precio por hora: {space.pricePerHour} | Metros cuadrados: {space.squareMeters} | Color: {space.color} <br />
-                        {space.description}
-                      </>
+                      `Precio por hora: ${space.pricePerHour} | Metros cuadrados: ${space.squareMeters} | Color: ${space.color}`
                     }
                   />
                   <ListItemSecondaryAction>
-                    <IconButton edge="end" aria-label="editar" onClick={() => handleEdit(space)} sx={{ mr: 1 }}>
+                    <IconButton edge="end" onClick={() => handleEdit(space)} sx={{ mr: 1 }}>
                       <EditIcon color="primary" />
                     </IconButton>
-                    <IconButton edge="end" aria-label="eliminar" onClick={() => deleteSpace(space._id)}>
+                    <IconButton edge="end" onClick={() => deleteSpace(space._id)}>
                       <DeleteIcon color="error" />
                     </IconButton>
                   </ListItemSecondaryAction>

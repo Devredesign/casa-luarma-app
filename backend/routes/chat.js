@@ -17,6 +17,7 @@ router.post('/', async (req, res) => {
     const completion = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
       messages,
+      max_tokens: 300,
       temperature: 0.7,
     });
     const reply = completion.choices[0].message.content;
