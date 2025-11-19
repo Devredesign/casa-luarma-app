@@ -186,7 +186,7 @@ const RentalManager = ({
   return (
     <div>
       <Typography variant="h4" gutterBottom sx={{ mt: 3 }}>
-        Gestión de Alquileres
+        Alquileres
       </Typography>
 
       <Accordion>
