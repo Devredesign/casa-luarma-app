@@ -80,7 +80,7 @@ const SpacesManager = ({ onSpacesUpdate }) => {
   return (
     <div>
       <Typography variant="h4" gutterBottom sx={{ mt: 3 }}>
-        Gestión de Espacios
+        Espacios
       </Typography>
 
       <Accordion>
