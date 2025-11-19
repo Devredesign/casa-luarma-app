@@ -152,7 +152,7 @@ export default function ClassesManager({
   return (
     <div>
       <Typography variant="h4" sx={{ mt: 3 }}>
-        Gestión de Clases
+        Clases
       </Typography>
 
       <Accordion>
