@@ -117,7 +117,7 @@ const TeacherManager = ({ onTeachersUpdate }) => {
   return (
     <div>
       <Typography variant="h4" gutterBottom sx={{ mt: 3 }}>
-        Gestión de Profesores
+        Profesores
       </Typography>
 
       <Accordion defaultExpanded={false}>
