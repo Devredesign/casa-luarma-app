@@ -85,7 +85,7 @@ const StudentsManager = ({ onStudentsUpdate }) => {
   return (
     <div>
       <Typography variant="h4" gutterBottom sx={{ mt: 3 }}>
-        Gestión de Estudiantes
+        Estudiantes
       </Typography>
 
       <Accordion defaultExpanded={false}>
