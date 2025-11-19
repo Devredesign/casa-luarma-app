@@ -127,7 +127,7 @@ const PaymentManager = ({ classesList, students, onPaymentsUpdate }) => {
 
   return (
     <div>
-      <Typography variant="h4" sx={{ mt: 3 }}>Gestión de Pagos</Typography>
+      <Typography variant="h4" sx={{ mt: 3 }}>Pagos</Typography>
 
       {/* Registrar Pago */}
       <Accordion>
