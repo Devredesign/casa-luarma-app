@@ -15,28 +15,35 @@ import {
   IconButton
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 const SpacesManager = ({ onSpacesUpdate }) => {
   const [spaces, setSpaces] = useState([]);
-  const [editingSpace, setEditingSpace] = useState(null);
 
-  // Obtener espacios
+  const safeCallOnSpacesUpdate = (data) => {
+    if (typeof onSpacesUpdate === 'function') {
+      onSpacesUpdate(data);
+    } else if (onSpacesUpdate !== undefined) {
+      console.warn('[SpacesManager] onSpacesUpdate NO es función:', onSpacesUpdate);
+    }
+  };
+
   const fetchSpaces = async () => {
     try {
       const response = await api.get('/spaces');
-      setSpaces(response.data || []);
-      onSpacesUpdate?.(response.data || []);
+      const data = response.data || [];
+      setSpaces(data);
+      safeCallOnSpacesUpdate(data);
     } catch (error) {
       console.error('Error al obtener espacios:', error);
       toast.error('Error al obtener espacios');
     }
   };
 
-  useEffect(fetchSpaces, []);
+  useEffect(() => {
+    fetchSpaces();
+  }, []);
 
-  // Crear espacio
   const addSpace = async (spaceData) => {
     try {
       const dataToSend = {
@@ -44,55 +51,31 @@ const SpacesManager = ({ onSpacesUpdate }) => {
         pricePerHour: Number(spaceData.pricePerHour),
         squareMeters: Number(spaceData.squareMeters)
       };
+
       const response = await api.post('/spaces', dataToSend);
       const newSpace = response.data;
       const updated = [...spaces, newSpace];
       setSpaces(updated);
-      onSpacesUpdate?.(updated);
+      safeCallOnSpacesUpdate(updated);
       toast.success('Espacio registrado exitosamente');
-      setEditingSpace(null);
     } catch (error) {
       console.error('Error al registrar espacio:', error);
       toast.error('Error al registrar espacio');
     }
   };
 
-  // Actualizar espacio existente
-  const updateSpace = async (id, spaceData) => {
-    try {
-      const dataToSend = {
-        ...spaceData,
-        pricePerHour: Number(spaceData.pricePerHour),
-        squareMeters: Number(spaceData.squareMeters)
-      };
-      const response = await api.patch(`/spaces/${id}`, dataToSend);
-      const updated = spaces.map(s => s._id === id ? response.data : s);
-      setSpaces(updated);
-      onSpacesUpdate?.(updated);
-      setEditingSpace(null);
-      toast.success('Espacio actualizado exitosamente');
-    } catch (error) {
-      console.error('Error al actualizar espacio:', error);
-      toast.error('Error al actualizar espacio');
-    }
-  };
-
-  // Eliminar espacio
   const deleteSpace = async (id) => {
     try {
       await api.delete(`/spaces/${id}`);
-      const updated = spaces.filter(s => s._id !== id);
-      setSpaces(updated);
-      onSpacesUpdate?.(updated);
+      const updatedSpaces = spaces.filter((space) => space._id !== id);
+      setSpaces(updatedSpaces);
+      safeCallOnSpacesUpdate(updatedSpaces);
       toast.success('Espacio eliminado exitosamente');
     } catch (error) {
       console.error('Error al eliminar espacio:', error);
       toast.error('Error al eliminar espacio');
     }
   };
-
-  // Cargar espacio para edición
-  const handleEdit = (space) => setEditingSpace(space);
 
   return (
     <div>
@@ -102,16 +85,10 @@ const SpacesManager = ({ onSpacesUpdate }) => {
 
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography>
-            {editingSpace ? 'Editar Espacio' : 'Registrar Nuevo Espacio'}
-          </Typography>
+          <Typography>Registrar Nuevo Espacio</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          <SpaceForm
-            onAddSpace={addSpace}                          // prop para creación
-            onSave={editingSpace ? data => updateSpace(editingSpace._id, data) : undefined} // prop para edición
-            initialData={editingSpace || undefined}
-          />
+          <SpaceForm onSave={addSpace} />
         </AccordionDetails>
       </Accordion>
 
@@ -124,19 +101,24 @@ const SpacesManager = ({ onSpacesUpdate }) => {
             <Typography>No hay espacios registrados.</Typography>
           ) : (
             <List>
-              {spaces.map(space => (
+              {spaces.map((space) => (
                 <ListItem key={space._id} divider>
                   <ListItemText
                     primary={space.name}
                     secondary={
-                      `Precio por hora: ${space.pricePerHour} | Metros cuadrados: ${space.squareMeters} | Color: ${space.color}`
+                      <>
+                        Precio por hora: {space.pricePerHour} | Metros cuadrados: {space.squareMeters} | Color: {space.color}
+                        <br />
+                        {space.description}
+                      </>
                     }
                   />
                   <ListItemSecondaryAction>
-                    <IconButton edge="end" onClick={() => handleEdit(space)} sx={{ mr: 1 }}>
-                      <EditIcon color="primary" />
-                    </IconButton>
-                    <IconButton edge="end" onClick={() => deleteSpace(space._id)}>
+                    <IconButton
+                      edge="end"
+                      aria-label="eliminar"
+                      onClick={() => deleteSpace(space._id)}
+                    >
                       <DeleteIcon color="error" />
                     </IconButton>
                   </ListItemSecondaryAction>
