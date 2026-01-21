@@ -1,8 +1,11 @@
 // src/components/SpaceForm.js
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, TextField, Button, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import {
+  Box, Typography, TextField, Button,
+  FormControl, InputLabel, Select, MenuItem
+} from '@mui/material';
 
-export default function SpaceForm({ onAddSpace, onSave, initialData }) {
+export default function SpaceForm({ onSave, initialData }) {
   const [formData, setFormData] = useState({
     name: '',
     pricePerHour: '',
@@ -11,7 +14,6 @@ export default function SpaceForm({ onAddSpace, onSave, initialData }) {
     color: ''
   });
 
-  // Sync for edit mode
   useEffect(() => {
     if (initialData) {
       setFormData({
@@ -21,6 +23,8 @@ export default function SpaceForm({ onAddSpace, onSave, initialData }) {
         description: initialData.description || '',
         color: initialData.color?.toString() || ''
       });
+    } else {
+      setFormData({ name: '', pricePerHour: '', squareMeters: '', description: '', color: '' });
     }
   }, [initialData]);
 
@@ -31,15 +35,22 @@ export default function SpaceForm({ onAddSpace, onSave, initialData }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
     const payload = {
       ...formData,
       pricePerHour: Number(formData.pricePerHour),
       squareMeters: Number(formData.squareMeters)
     };
-    if (initialData) {
-      onSave?.(payload);
-    } else {
-      onAddSpace?.(payload);
+
+    if (typeof onSave !== 'function') {
+      console.warn('[SpaceForm] onSave no es función:', onSave);
+      return;
+    }
+
+    onSave(payload);
+
+    // solo limpiar si es “crear”
+    if (!initialData) {
       setFormData({ name: '', pricePerHour: '', squareMeters: '', description: '', color: '' });
     }
   };
@@ -49,6 +60,7 @@ export default function SpaceForm({ onAddSpace, onSave, initialData }) {
       <Typography variant="h6" gutterBottom>
         {initialData ? 'Editar Espacio' : 'Registrar un Espacio'}
       </Typography>
+
       <TextField
         label="Nombre del Espacio"
         name="name"
@@ -86,6 +98,7 @@ export default function SpaceForm({ onAddSpace, onSave, initialData }) {
         fullWidth
         margin="normal"
       />
+
       <FormControl fullWidth required margin="normal">
         <InputLabel>Color</InputLabel>
         <Select
@@ -103,7 +116,8 @@ export default function SpaceForm({ onAddSpace, onSave, initialData }) {
           <MenuItem value="5">Amarillo</MenuItem>
         </Select>
       </FormControl>
-      <Button type="submit" variant="contained" color="primary">
+
+      <Button type="submit" variant="contained">
         {initialData ? 'Actualizar Espacio' : 'Guardar Espacio'}
       </Button>
     </Box>
