@@ -39,7 +39,7 @@ export default function SpaceForm({ onAddSpace, onSave, initialData }) {
     if (initialData) {
       onSave?.(payload);
     } else {
-      onAddSpace(payload);
+      onAddSpace?.(payload);
       setFormData({ name: '', pricePerHour: '', squareMeters: '', description: '', color: '' });
     }
   };
