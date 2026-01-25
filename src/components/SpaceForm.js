@@ -1,8 +1,14 @@
 // src/components/SpaceForm.js
-console.log('[SpaceForm] props', { onSave, initialData });
+import React, { useState, useEffect } from 'react';
 import {
-  Box, Typography, TextField, Button,
-  FormControl, InputLabel, Select, MenuItem
+  Box,
+  Typography,
+  TextField,
+  Button,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
 
 export default function SpaceForm({ onSave, initialData }) {
@@ -14,6 +20,7 @@ export default function SpaceForm({ onSave, initialData }) {
     color: ''
   });
 
+  // Sync for edit mode
   useEffect(() => {
     if (initialData) {
       setFormData({
@@ -24,13 +31,19 @@ export default function SpaceForm({ onSave, initialData }) {
         color: initialData.color?.toString() || ''
       });
     } else {
-      setFormData({ name: '', pricePerHour: '', squareMeters: '', description: '', color: '' });
+      setFormData({
+        name: '',
+        pricePerHour: '',
+        squareMeters: '',
+        description: '',
+        color: ''
+      });
     }
   }, [initialData]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = (e) => {
@@ -46,12 +59,18 @@ export default function SpaceForm({ onSave, initialData }) {
       console.warn('[SpaceForm] onSave no es función:', onSave);
       return;
     }
-console.log('[SpaceForm] props', { onSave, initialData });
+
     onSave(payload);
 
     // solo limpiar si es “crear”
     if (!initialData) {
-      setFormData({ name: '', pricePerHour: '', squareMeters: '', description: '', color: '' });
+      setFormData({
+        name: '',
+        pricePerHour: '',
+        squareMeters: '',
+        description: '',
+        color: ''
+      });
     }
   };
 
@@ -70,6 +89,7 @@ console.log('[SpaceForm] props', { onSave, initialData });
         required
         margin="normal"
       />
+
       <TextField
         label="Precio por Hora"
         name="pricePerHour"
@@ -80,6 +100,7 @@ console.log('[SpaceForm] props', { onSave, initialData });
         required
         margin="normal"
       />
+
       <TextField
         label="Metros Cuadrados"
         name="squareMeters"
@@ -90,6 +111,7 @@ console.log('[SpaceForm] props', { onSave, initialData });
         required
         margin="normal"
       />
+
       <TextField
         label="Descripción"
         name="description"
@@ -107,7 +129,9 @@ console.log('[SpaceForm] props', { onSave, initialData });
           onChange={handleChange}
           label="Color"
         >
-          <MenuItem value=""><em>Seleccione un color</em></MenuItem>
+          <MenuItem value="">
+            <em>Seleccione un color</em>
+          </MenuItem>
           <MenuItem value="9">Azul</MenuItem>
           <MenuItem value="10">Verde</MenuItem>
           <MenuItem value="11">Rojo</MenuItem>
