@@ -73,7 +73,7 @@ export default function ProfitLineChart({ year, small, refresh }) {
       });
     };
     fetchAll();
-  }, [year, refresh]);
+  }, [year, refresh,small]);
 
   if (!data) return <p>Cargando gráfico…</p>;
 
