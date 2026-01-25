@@ -46,7 +46,7 @@ export default function SpaceForm({ onSave, initialData }) {
       console.warn('[SpaceForm] onSave no es función:', onSave);
       return;
     }
-console.log('[SpaceForm] props', { onSave, onAddSpace, initialData });
+console.log('[SpaceForm] props', { onSave, initialData });
     onSave(payload);
 
     // solo limpiar si es “crear”
