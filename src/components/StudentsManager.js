@@ -4,7 +4,6 @@ import api from '../services/api';
 import StudentForm from './StudentForm';
 import {
   Typography,
-  Divider,
   Accordion,
   AccordionSummary,
   AccordionDetails,
