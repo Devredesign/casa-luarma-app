@@ -1,5 +1,5 @@
 // src/components/TeacherManager.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import {
   Box,
@@ -31,20 +31,21 @@ const TeacherManager = ({ onTeachersUpdate }) => {
   const [editingTeacher, setEditingTeacher] = useState(null);
 
   // Fetch teachers
-  const fetchTeachers = async () => {
-    try {
-      const res = await api.get('/teachers');
-      setTeachers(res.data || []);
-      onTeachersUpdate?.(res.data || []);
-    } catch (err) {
-      console.error('Error al obtener profesores:', err);
-      toast.error('Error al obtener profesores');
-    }
-  };
+  const fetchTeachers = useCallback(async () => {
+  try {
+    const res = await api.get('/teachers');
+    setTeachers(res.data || []);
+    onTeachersUpdate?.(res.data || []);
+  } catch (err) {
+    console.error('Error al obtener profesores:', err);
+    toast.error('Error al obtener profesores');
+  }
+}, [onTeachersUpdate]);
 
-  useEffect(() => {
-    fetchTeachers();
-  }, []);
+useEffect(() => {
+  fetchTeachers();
+}, [fetchTeachers]);
+
 
   // Handle form field changes
   const handleChange = (e) => {
