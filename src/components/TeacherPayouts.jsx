@@ -2,9 +2,6 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import {
   Typography,
-  Grid,
-  Card,
-  CardContent,
   FormControl,
   InputLabel,
   Select,
@@ -30,7 +27,6 @@ const monthNames = [
 const currentYear = new Date().getFullYear();
 
 export default function TeacherPayouts() {
-  const currentYear = new Date().getFullYear();
   const [data, setData]   = useState([]);
   const [month, setMonth] = useState(new Date().getMonth()+1);
   const [year, setYear]   = useState(currentYear);
