@@ -1,5 +1,5 @@
 // src/components/StudentsManager.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import StudentForm from './StudentForm';
 import {
@@ -22,20 +22,20 @@ const StudentsManager = ({ onStudentsUpdate }) => {
   const [students, setStudents] = useState([]);
   const [editingStudent, setEditingStudent] = useState(null);
 
-  const fetchStudents = async () => {
-    try {
-      const res = await api.get('/students');
-      setStudents(res.data || []);
-      onStudentsUpdate?.(res.data || []);
-    } catch (err) {
-      console.error('Error al obtener estudiantes:', err);
-      toast.error('Error al obtener estudiantes');
-    }
-  };
+  const fetchStudents = useCallback(async () => {
+  try {
+    const res = await api.get('/students');
+    setStudents(res.data || []);
+    onStudentsUpdate?.(res.data || []);
+  } catch (err) {
+    console.error('Error al obtener estudiantes:', err);
+    toast.error('Error al obtener estudiantes');
+  }
+}, [onStudentsUpdate]);
 
-  useEffect(() => {
-    fetchStudents();
-  }, []);
+useEffect(() => {
+  fetchStudents();
+}, [fetchStudents]);
 
   const addStudent = async (studentData) => {
     try {
