@@ -208,7 +208,6 @@ const PaymentManager = ({ classesList, students, onPaymentsUpdate }) => {
                 const cls = classesList.find(c => c._id === p.classId) || {};
                 const stu = students.find(s => s._id === p.studentId) || {};
                 const dateObj = new Date(p.paymentDate);
-                const dateString = isNaN(dateObj) ? 'Fecha inválida' : dateObj.toLocaleDateString();
                 return (
                   <ListItem key={p._id} divider sx={{ alignItems: 'flex-start' }}>
                     <ListItemText
