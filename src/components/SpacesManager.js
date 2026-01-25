@@ -28,21 +28,19 @@ const SpacesManager = ({ onSpacesUpdate }) => {
     }
   };
 
-  const fetchSpaces = async () => {
-    try {
-      const response = await api.get('/spaces');
-      const data = response.data || [];
-      setSpaces(data);
-      safeCallOnSpacesUpdate(data);
-    } catch (error) {
-      console.error('Error al obtener espacios:', error);
-      toast.error('Error al obtener espacios');
-    }
-  };
+  const fetchSpaces = useCallback(async () => {
+  try {
+    const res = await api.get('/spaces');
+    setSpaces(res.data || []);
+  } catch (err) {
+    console.error('Error al obtener espacios:', err);
+    toast.error('Error al obtener espacios');
+  }
+}, []);
 
-  useEffect(() => {
-    fetchSpaces();
-  }, []);
+useEffect(() => {
+  fetchSpaces();
+}, [fetchSpaces]);
 
   const addSpace = async (spaceData) => {
     try {
