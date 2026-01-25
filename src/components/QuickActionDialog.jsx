@@ -9,8 +9,7 @@ import {
   Stepper,
   Step,
   StepLabel,
-  Stack,
-  Typography
+  Stack
 } from '@mui/material';
 
 import StudentsManager from './StudentsManager';
