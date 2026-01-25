@@ -59,21 +59,19 @@ const RentalManager = ({
   };
 
   // Carga inicial de alquileres
-  const fetchRentals = async () => {
-    try {
-      const res = await api.get('/rentals');
-      const data = res.data || [];
-      setRentals(data);
-      safeCallOnRentalsUpdate(data);
-    } catch (err) {
-      console.error('Error al obtener alquileres:', err);
-      toast.error('Error al obtener alquileres');
-    }
-  };
+  const fetchRentals = useCallback(async () => {
+  try {
+    const res = await api.get('/rentals');
+    setRentals(res.data || []);
+  } catch (err) {
+    console.error('Error al obtener alquileres:', err);
+    toast.error('Error al obtener alquileres');
+  }
+}, []);
 
-  useEffect(() => {
-    fetchRentals();
-  }, []);
+useEffect(() => {
+  fetchRentals();
+}, [fetchRentals]);
 
   // Guardar (crear o actualizar) alquiler
   const saveRental = async (rentalData) => {
