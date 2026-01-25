@@ -10,8 +10,7 @@ import {
   List,
   ListItem,
   ListItemText,
-  IconButton,
-  Divider
+  IconButton
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
