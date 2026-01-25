@@ -1,5 +1,5 @@
 // src/components/SpacesManager.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import SpaceForm from './SpaceForm';
 import { toast } from 'react-toastify';
