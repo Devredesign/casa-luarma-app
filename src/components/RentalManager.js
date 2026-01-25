@@ -1,5 +1,5 @@
 // src/components/RentalManager.js
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import RentalForm from './RentalForm';
 import {
