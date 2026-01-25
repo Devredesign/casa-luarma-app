@@ -1,5 +1,5 @@
 // src/components/SpaceForm.js
-import React, { useState, useEffect } from 'react';
+console.log('[SpaceForm] props', { onSave, initialData });
 import {
   Box, Typography, TextField, Button,
   FormControl, InputLabel, Select, MenuItem
