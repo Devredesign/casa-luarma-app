@@ -10,8 +10,7 @@ import {
   List,
   ListItem,
   ListItemText,
-  IconButton,
-  Divider
+  IconButton
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import ExpandMoreIcon     from '@mui/icons-material/ExpandMore';
@@ -48,7 +47,7 @@ export default function ClassesManager({
       }
     }
     fetch();
-  }, []);
+  }, [onClassesUpdate]);
 
   const saveClass = async data => {
     try {
