@@ -1,19 +1,14 @@
 // src/components/Home.js
-import React from 'react';
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import {
   Box,
   Container,
   Typography,
   Button,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   Avatar
-  
 } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChatLilo from '../components/ChatLilo';
+
 
 export default function Home({ onLoginClick, onQuickAction }) {
   useEffect(() => console.log('[Home] ChatLilo montado'), []);
