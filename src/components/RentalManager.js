@@ -1,11 +1,11 @@
 // src/components/RentalManager.js
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import api from '../services/api';
 import RentalForm from './RentalForm';
 import {
   createCalendarEvent,
   deleteCalendarEvent,
-  updateCalendarEvent,   // asegúrate de tener esto si lo usas
+  updateCalendarEvent,
 } from '../services/calendarService';
 import { initCalendarTokenClient } from '../services/calendarTokenClient';
 import { toast } from 'react-toastify';
@@ -35,7 +35,7 @@ const formatLocalDateTime = (date) => {
 };
 
 const RentalManager = ({
-  spaces = [],
+  spaces,
   onRentalsUpdate,
   calendarToken,
   setCalendarToken,
@@ -43,6 +43,10 @@ const RentalManager = ({
 }) => {
   const [rentals, setRentals] = useState([]);
   const [editingRental, setEditingRental] = useState(null);
+
+  // ✅ SAFE arrays
+  const rentalsArray = useMemo(() => (Array.isArray(rentals) ? rentals : []), [rentals]);
+  const spacesArray = useMemo(() => (Array.isArray(spaces) ? spaces : []), [spaces]);
 
   const safeCallOnRentalsUpdate = (data) => {
     if (typeof onRentalsUpdate === 'function') {
@@ -53,37 +57,40 @@ const RentalManager = ({
   };
 
   const safeCallOnEventSynced = () => {
-    if (typeof onEventSynced === 'function') {
-      onEventSynced();
-    }
+    if (typeof onEventSynced === 'function') onEventSynced();
   };
 
   // Carga inicial de alquileres
   const fetchRentals = useCallback(async () => {
-  try {
-    const res = await api.get('/rentals');
-    setRentals(res.data || []);
-  } catch (err) {
-    console.error('Error al obtener alquileres:', err);
-    toast.error('Error al obtener alquileres');
-  }
-}, []);
+    try {
+      const res = await api.get('/rentals');
+      const list = Array.isArray(res.data) ? res.data : [];
+      setRentals(list);
+      safeCallOnRentalsUpdate(list);
+    } catch (err) {
+      console.error('Error al obtener alquileres:', err);
+      toast.error('Error al obtener alquileres');
+      setRentals([]);
+      safeCallOnRentalsUpdate([]);
+    }
+  }, []); // sin dependencias para evitar recreación
 
-useEffect(() => {
-  fetchRentals();
-}, [fetchRentals]);
+  useEffect(() => {
+    fetchRentals();
+  }, [fetchRentals]);
 
   // Guardar (crear o actualizar) alquiler
   const saveRental = async (rentalData) => {
     try {
       let res;
-      if (editingRental) {
-        // EDITAR
+      const wasEditing = Boolean(editingRental);
+
+      if (editingRental?._id) {
         res = await api.patch(`/rentals/${editingRental._id}`, rentalData);
       } else {
-        // CREAR
         res = await api.post('/rentals', rentalData);
       }
+
       const saved = res.data;
 
       // --- Google Calendar ---
@@ -91,29 +98,31 @@ useEffect(() => {
         const startDate = new Date(rentalData.startTime || saved.startTime);
         const endDate = new Date(
           startDate.getTime() +
-          Number(rentalData.hours ?? saved.hours) * 3600000
+            Number(rentalData.hours ?? saved.hours) * 3600000
         );
         const days = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
         const dow = days[startDate.getDay()];
 
-        const selectedSpace = spaces.find(
+        const selectedSpace = spacesArray.find(
           (s) => s._id?.toString() === (rentalData.space || saved.space)?.toString()
         );
         const colorId = selectedSpace?.color ? String(selectedSpace.color) : undefined;
 
         const eventData = {
           summary: rentalData.activityName || saved.activityName,
-          description: `Alquiler de ${selectedSpace?.name || 'Espacio'} por ${rentalData.tenantName || saved.tenantName}`,
+          description: `Alquiler de ${selectedSpace?.name || 'Espacio'} por ${
+            rentalData.tenantName || saved.tenantName
+          }`,
           start: { dateTime: formatLocalDateTime(startDate), timeZone: 'America/Costa_Rica' },
           end: { dateTime: formatLocalDateTime(endDate), timeZone: 'America/Costa_Rica' },
           ...(rentalData.isRecurring || saved.isRecurring
             ? { recurrence: [`RRULE:FREQ=WEEKLY;BYDAY=${dow}`] }
             : {}),
-          ...(colorId && { colorId }),
+          ...(colorId ? { colorId } : {}),
         };
 
         try {
-          if (saved.eventId) {
+          if (saved?.eventId) {
             await updateCalendarEvent(calendarToken, saved.eventId, eventData);
             toast.success('Evento actualizado en Google Calendar');
           } else {
@@ -130,15 +139,16 @@ useEffect(() => {
         toast.info('Alquiler guardado, falta conectar Calendar');
       }
 
-      // Actualizar estado local
-      const updatedList = editingRental
-        ? rentals.map((r) => (r._id === saved._id ? saved : r))
-        : [...rentals, saved];
+      // Actualizar estado local (SAFE)
+      const updatedList = wasEditing
+        ? rentalsArray.map((r) => (r._id === saved._id ? saved : r))
+        : [...rentalsArray, saved];
 
       setRentals(updatedList);
       safeCallOnRentalsUpdate(updatedList);
       setEditingRental(null);
-      toast.success(editingRental ? 'Alquiler actualizado' : 'Alquiler registrado exitosamente');
+
+      toast.success(wasEditing ? 'Alquiler actualizado' : 'Alquiler registrado exitosamente');
     } catch (err) {
       console.error('Error al guardar alquiler:', err);
       toast.error('Error al guardar alquiler');
@@ -149,23 +159,28 @@ useEffect(() => {
   const deleteRental = async (rentalId, eventId) => {
     try {
       await api.delete(`/rentals/${rentalId}`);
-      const filtered = rentals.filter((r) => r._id !== rentalId);
+
+      const filtered = rentalsArray.filter((r) => r._id !== rentalId);
+
       setRentals(filtered);
       safeCallOnRentalsUpdate(filtered);
       toast.success('Alquiler eliminado de la app');
 
       if (eventId) {
         let token = calendarToken;
+
         if (!token) {
           token = await new Promise((resolve, reject) => {
             const client = initCalendarTokenClient((resp) => {
-              resp.error ? reject(resp) : resolve(resp.access_token);
+              resp?.error ? reject(resp) : resolve(resp.access_token);
             });
             client.requestAccessToken();
           });
-          setCalendarToken(token);
+
+          setCalendarToken?.(token);
           localStorage.setItem('calendarAccessToken', token);
         }
+
         try {
           await deleteCalendarEvent(token, eventId);
           toast.success('Evento borrado de Google Calendar');
@@ -193,8 +208,8 @@ useEffect(() => {
         </AccordionSummary>
         <AccordionDetails>
           <RentalForm
-            onSave={saveRental}
-            spaces={spaces}
+            onAddRental={saveRental}   // ✅ IMPORTANTE: RentalForm espera onAddRental
+            spaces={spacesArray}       // ✅ pasa array seguro
             initialData={editingRental}
           />
         </AccordionDetails>
@@ -205,20 +220,21 @@ useEffect(() => {
           <Typography>Listado de Alquileres</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          {rentals.length === 0 ? (
+          {rentalsArray.length === 0 ? (
             <Typography>No hay alquileres registrados.</Typography>
           ) : (
             <List>
-              {rentals.map((r) => {
-                const selectedSpace = spaces.find(
+              {rentalsArray.map((r) => {
+                const selectedSpace = spacesArray.find(
                   (s) => s._id?.toString() === r.space?.toString()
                 );
-                const spaceName = selectedSpace ? selectedSpace.name : 'Sin espacio asignado';
+                const spaceName = selectedSpace?.name || 'Sin espacio asignado';
+
                 return (
                   <ListItem key={r._id} divider>
                     <ListItemText
-                      primary={`${r.activityName} — ${spaceName}`}
-                      secondary={`Arrendatario: ${r.tenantName} | Horas: ${r.hours}`}
+                      primary={`${r.activityName || 'Sin actividad'} — ${spaceName}`}
+                      secondary={`Arrendatario: ${r.tenantName || 'N/A'} | Horas: ${r.hours ?? 'N/A'}`}
                     />
                     <IconButton onClick={() => setEditingRental(r)}>
                       <EditIcon color="primary" />
