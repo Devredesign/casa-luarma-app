@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 // Definición de credenciales estáticas para el admin (para desarrollo)
 const adminCredentials = {
   email: 'admin@casaluarma.com',
-  password: '1234'
+  password: '!Luarma2026'
 };
 
 const Login = () => {
