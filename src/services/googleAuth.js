@@ -2,7 +2,7 @@
 
 // Scope: solo lectura (para listar). Si querés crear/editar/borrar eventos,
 // cambiá a 'https://www.googleapis.com/auth/calendar.events'
-const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
 
 export const initializeGoogleSignIn = (onSuccess, onError) => {
   try {
