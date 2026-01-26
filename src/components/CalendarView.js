@@ -85,7 +85,7 @@ const CalendarView = ({ accessToken, refresh }) => {
       token = await requestGoogleAccessToken();
       localStorage.setItem('google_access_token', token);
     }
-
+console.log("Access token obtenido?", !!token, "len:", token?.length);
     return token;
   }, [accessToken]);
 
