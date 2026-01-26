@@ -1,5 +1,5 @@
 // src/components/StudentsManager.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../services/api';
 import StudentForm from './StudentForm';
 import {
@@ -21,28 +21,46 @@ const StudentsManager = ({ onStudentsUpdate }) => {
   const [students, setStudents] = useState([]);
   const [editingStudent, setEditingStudent] = useState(null);
 
-  const fetchStudents = useCallback(async () => {
-  try {
-    const res = await api.get('/students');
-    setStudents(res.data || []);
-    onStudentsUpdate?.(res.data || []);
-  } catch (err) {
-    console.error('Error al obtener estudiantes:', err);
-    toast.error('Error al obtener estudiantes');
-  }
-}, [onStudentsUpdate]);
+  // Siempre trabajar con array seguro para evitar crash en render
+  const studentsArray = useMemo(
+    () => (Array.isArray(students) ? students : []),
+    [students]
+  );
 
-useEffect(() => {
-  fetchStudents();
-}, [fetchStudents]);
+  const fetchStudents = useCallback(async () => {
+    try {
+      const res = await api.get('/students');
+
+      // Asegurar array (evita map/filter crash)
+      const list = Array.isArray(res.data) ? res.data : [];
+
+      setStudents(list);
+      onStudentsUpdate?.(list);
+    } catch (err) {
+      console.error('Error al obtener estudiantes:', err);
+      toast.error('Error al obtener estudiantes');
+      setStudents([]); // fallback seguro
+      onStudentsUpdate?.([]);
+    }
+  }, [onStudentsUpdate]);
+
+  useEffect(() => {
+    fetchStudents();
+  }, [fetchStudents]);
 
   const addStudent = async (studentData) => {
     try {
       const res = await api.post('/students', studentData);
-      const updated = [...students, res.data];
+
+      // Usar array seguro
+      const updated = [...studentsArray, res.data];
+
       setStudents(updated);
       onStudentsUpdate?.(updated);
+
       toast.success('Estudiante registrado exitosamente');
+
+      // Opcional: refrescar desde backend por consistencia
       fetchStudents();
     } catch (err) {
       console.error('Error al registrar estudiante:', err);
@@ -53,9 +71,12 @@ useEffect(() => {
   const updateStudent = async (id, studentData) => {
     try {
       const res = await api.patch(`/students/${id}`, studentData);
-      const updated = students.map(s => s._id === id ? res.data : s);
+
+      const updated = studentsArray.map((s) => (s._id === id ? res.data : s));
+
       setStudents(updated);
       onStudentsUpdate?.(updated);
+
       setEditingStudent(null);
       toast.success('Estudiante actualizado exitosamente');
     } catch (err) {
@@ -67,9 +88,12 @@ useEffect(() => {
   const deleteStudent = async (id) => {
     try {
       await api.delete(`/students/${id}`);
-      const updated = students.filter(s => s._id !== id);
+
+      const updated = studentsArray.filter((s) => s._id !== id);
+
       setStudents(updated);
       onStudentsUpdate?.(updated);
+
       toast.success('Estudiante eliminado exitosamente');
     } catch (err) {
       console.error('Error al eliminar estudiante:', err);
@@ -89,11 +113,17 @@ useEffect(() => {
 
       <Accordion defaultExpanded={false}>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography>{editingStudent ? 'Editar Estudiante' : 'Registrar Estudiante'}</Typography>
+          <Typography>
+            {editingStudent ? 'Editar Estudiante' : 'Registrar Estudiante'}
+          </Typography>
         </AccordionSummary>
         <AccordionDetails>
           <StudentForm
-            onSave={editingStudent ? (data) => updateStudent(editingStudent._id, data) : addStudent}
+            onSave={
+              editingStudent
+                ? (data) => updateStudent(editingStudent._id, data)
+                : addStudent
+            }
             initialData={editingStudent || undefined}
           />
         </AccordionDetails>
@@ -104,30 +134,11 @@ useEffect(() => {
           <Typography>Listado de Estudiantes</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          {students.length === 0 ? (
+          {studentsArray.length === 0 ? (
             <Typography>No hay estudiantes registrados.</Typography>
           ) : (
             <List>
-              {students.map((stu) => (
+              {studentsArray.map((stu) => (
                 <ListItem key={stu._id} divider>
                   <ListItemText
-                    primary={`${stu.name}`}
-                    secondary={`Cédula: ${stu.cedula} | Correo: ${stu.email} | Teléfono: ${stu.phone || 'N/A'}`}
-                  />
-                  <IconButton edge="end" aria-label="editar" onClick={() => handleEdit(stu)}>
-                    <EditIcon color="primary" />
-                  </IconButton>
-                  <IconButton edge="end" aria-label="eliminar" onClick={() => deleteStudent(stu._id)}>
-                    <DeleteIcon color="error" />
-                  </IconButton>
-                </ListItem>
-              ))}
-            </List>
-          )}
-        </AccordionDetails>
-      </Accordion>
-    </div>
-  );
-};
-
-export default StudentsManager;
+                    primary={`${stu.name || ''}`
