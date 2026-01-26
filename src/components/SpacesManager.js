@@ -1,5 +1,5 @@
 // src/components/SpacesManager.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../services/api';
 import SpaceForm from './SpaceForm';
 import { toast } from 'react-toastify';
@@ -20,6 +20,12 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 const SpacesManager = ({ onSpacesUpdate }) => {
   const [spaces, setSpaces] = useState([]);
 
+  // ✅ SAFE array para evitar map/filter crash
+  const spacesArray = useMemo(
+    () => (Array.isArray(spaces) ? spaces : []),
+    [spaces]
+  );
+
   const safeCallOnSpacesUpdate = (data) => {
     if (typeof onSpacesUpdate === 'function') {
       onSpacesUpdate(data);
@@ -29,18 +35,25 @@ const SpacesManager = ({ onSpacesUpdate }) => {
   };
 
   const fetchSpaces = useCallback(async () => {
-  try {
-    const res = await api.get('/spaces');
-    setSpaces(res.data || []);
-  } catch (err) {
-    console.error('Error al obtener espacios:', err);
-    toast.error('Error al obtener espacios');
-  }
-}, []);
+    try {
+      const res = await api.get('/spaces');
 
-useEffect(() => {
-  fetchSpaces();
-}, [fetchSpaces]);
+      // ✅ Garantizar array (evita spaces.map crash)
+      const list = Array.isArray(res.data) ? res.data : [];
+
+      setSpaces(list);
+      safeCallOnSpacesUpdate(list);
+    } catch (err) {
+      console.error('Error al obtener espacios:', err);
+      toast.error('Error al obtener espacios');
+      setSpaces([]);
+      safeCallOnSpacesUpdate([]);
+    }
+  }, []); // no depende de onSpacesUpdate para evitar recreación constante
+
+  useEffect(() => {
+    fetchSpaces();
+  }, [fetchSpaces]);
 
   const addSpace = async (spaceData) => {
     try {
@@ -52,9 +65,11 @@ useEffect(() => {
 
       const response = await api.post('/spaces', dataToSend);
       const newSpace = response.data;
-      const updated = [...spaces, newSpace];
+
+      const updated = [...spacesArray, newSpace];
       setSpaces(updated);
       safeCallOnSpacesUpdate(updated);
+
       toast.success('Espacio registrado exitosamente');
     } catch (error) {
       console.error('Error al registrar espacio:', error);
@@ -65,9 +80,12 @@ useEffect(() => {
   const deleteSpace = async (id) => {
     try {
       await api.delete(`/spaces/${id}`);
-      const updatedSpaces = spaces.filter((space) => space._id !== id);
+
+      const updatedSpaces = spacesArray.filter((space) => space._id !== id);
+
       setSpaces(updatedSpaces);
       safeCallOnSpacesUpdate(updatedSpaces);
+
       toast.success('Espacio eliminado exitosamente');
     } catch (error) {
       console.error('Error al eliminar espacio:', error);
@@ -95,19 +113,21 @@ useEffect(() => {
           <Typography>Listado de Espacios</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          {spaces.length === 0 ? (
+          {spacesArray.length === 0 ? (
             <Typography>No hay espacios registrados.</Typography>
           ) : (
             <List>
-              {spaces.map((space) => (
+              {spacesArray.map((space) => (
                 <ListItem key={space._id} divider>
                   <ListItemText
-                    primary={space.name}
+                    primary={space.name || 'Sin nombre'}
                     secondary={
                       <>
-                        Precio por hora: {space.pricePerHour} | Metros cuadrados: {space.squareMeters} | Color: {space.color}
+                        Precio por hora: {Number(space.pricePerHour || 0).toLocaleString()} |{' '}
+                        Metros cuadrados: {Number(space.squareMeters || 0).toLocaleString()} |{' '}
+                        Color: {space.color || '—'}
                         <br />
-                        {space.description}
+                        {space.description || ''}
                       </>
                     }
                   />
