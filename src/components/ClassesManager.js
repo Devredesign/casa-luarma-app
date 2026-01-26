@@ -1,5 +1,5 @@
 // src/components/ClassesManager.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../services/api';
 import ClassForm from './ClassForm';
 import {
@@ -13,9 +13,9 @@ import {
   IconButton
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
-import ExpandMoreIcon     from '@mui/icons-material/ExpandMore';
-import DeleteIcon     from '@mui/icons-material/Delete';
-import { toast }      from 'react-toastify';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import DeleteIcon from '@mui/icons-material/Delete';
+import { toast } from 'react-toastify';
 import {
   createCalendarEvent,
   deleteCalendarEvent,
@@ -26,65 +26,82 @@ import { initCalendarTokenClient } from '../services/calendarTokenClient';
 export default function ClassesManager({
   teachers,
   spaces,
-  modalities,        // 🔥 asegúrate de recibir también esto
+  modalities,
   calendarToken,
   setCalendarToken,
   onClassesUpdate,
   refreshCalendar
 }) {
-  const WEEKDAYS = ['SU','MO','TU','WE','TH','FR','SA'];
+  const WEEKDAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+
   const [classes, setClasses] = useState([]);
   const [editing, setEditing] = useState(null);
 
-  useEffect(() => {
-    async function fetch() {
-      try {
-        const res = await api.get('/classes');
-        setClasses(res.data);
-        onClassesUpdate?.(res.data);
-      } catch {
-        toast.error('Error cargando clases');
-      }
+  // SAFE arrays (evita .map/.find crashes)
+  const classesArray = useMemo(() => (Array.isArray(classes) ? classes : []), [classes]);
+  const spacesArray = useMemo(() => (Array.isArray(spaces) ? spaces : []), [spaces]);
+  const teachersArray = useMemo(() => (Array.isArray(teachers) ? teachers : []), [teachers]);
+  const modalitiesArray = useMemo(() => (Array.isArray(modalities) ? modalities : []), [modalities]);
+
+  const fetchClasses = useCallback(async () => {
+    try {
+      const res = await api.get('/classes');
+      const list = Array.isArray(res.data) ? res.data : [];
+      setClasses(list);
+      onClassesUpdate?.(list);
+    } catch (err) {
+      console.error('Error cargando clases:', err);
+      toast.error('Error cargando clases');
+      setClasses([]);
+      onClassesUpdate?.([]);
     }
-    fetch();
   }, [onClassesUpdate]);
 
-  const saveClass = async data => {
-    try {
-      console.log(' Payload a POST /classes →', data);
-      // 1) Declaro res y saved
-      let res;
-    if (editing) {
-      res = await api.patch(`/classes/${editing._id}`, data);
-      setEditing(null);
-    } else {
-      res = await api.post('/classes', data);
-    }
-    const saved = res.data;
+  useEffect(() => {
+    fetchClasses();
+  }, [fetchClasses]);
 
-      // Sincronizar con Calendar (igual que antes)...
+  const saveClass = async (data) => {
+    try {
+      console.log('Payload a /classes →', data);
+
+      let res;
+      let wasEditing = Boolean(editing);
+
+      if (editing) {
+        res = await api.patch(`/classes/${editing._id}`, data);
+        setEditing(null);
+      } else {
+        res = await api.post('/classes', data);
+      }
+
+      const saved = res.data;
+
+      // ✅ Sincronizar con Calendar (si hay token)
       if (calendarToken) {
         const start = new Date(saved.schedule);
-        const end   = new Date(start.getTime() + 60 * 60 * 1000);
-        const colorId = saved.space?.color?.toString();
+        const end = new Date(start.getTime() + 60 * 60 * 1000);
+
         const eventData = {
-          summary:     saved.title,
+          summary: saved.title,
           description: '',
-          start:       { dateTime: start.toISOString(), timeZone: 'America/Costa_Rica' },
-          end:         { dateTime: end.toISOString(),   timeZone: 'America/Costa_Rica' },
-          ...(colorId ? { colorId } : {}),
+          start: { dateTime: start.toISOString(), timeZone: 'America/Costa_Rica' },
+          end: { dateTime: end.toISOString(), timeZone: 'America/Costa_Rica' },
         };
+
         if (saved.isRecurring) {
-                // Día de la semana según la fecha
-                const weekday = WEEKDAYS[start.getDay()];
-                eventData.recurrence = [
-                  `RRULE:FREQ=WEEKLY;BYDAY=${weekday}`
-                ];
-              }
-        const selectedSpace = spaces.find(s => s._id === saved.space);
-             if (selectedSpace?.color) {
-               eventData.colorId = selectedSpace.color;
-             }
+          const weekday = WEEKDAYS[start.getDay()];
+          eventData.recurrence = [`RRULE:FREQ=WEEKLY;BYDAY=${weekday}`];
+        }
+
+        // color: si saved.space es ID, lo buscamos; si es objeto, lo usamos
+        const spaceId = typeof saved.space === 'object' ? saved.space?._id : saved.space;
+        const selectedSpace = spacesArray.find((s) => s._id === spaceId);
+
+        if (selectedSpace?.color) {
+          eventData.colorId = selectedSpace.color.toString();
+        }
+
         try {
           if (saved.eventId) {
             await updateCalendarEvent(calendarToken, saved.eventId, eventData);
@@ -94,32 +111,25 @@ export default function ClassesManager({
             await api.patch(`/classes/${saved._id}`, { eventId: ev.id });
             saved.eventId = ev.id;
             toast.success('Evento creado en Calendar');
-            toast.success(editing ? 'Clase actualizada' : 'Clase registrada');
           }
           refreshCalendar?.();
         } catch (error) {
-          if (error.response) {
-            console.error('❌ HTTP', error.response.status);
-            console.error('❌ response.data:', error.response.data);
-            toast.error(
-              error.response.data.message ||
-              'Error de validación guardando la clase'
-            );
-          } else {
-            console.error('⚠️ Error inesperado:', error);
-            toast.error('Error guardando clase (sin respuesta del servidor)');
-          }
+          console.error('Error sincronizando Calendar:', error);
+          toast.error('Error sincronizando con Calendar');
         }
-      };
+      }
 
-      // Actualizar estado local
-      const updatedList = editing
-        ? classes.map(c => (c._id === saved._id ? saved : c))
-        : [...classes, saved];
+      // ✅ Actualizar estado local de forma segura
+      const updatedList = wasEditing
+        ? classesArray.map((c) => (c._id === saved._id ? saved : c))
+        : [...classesArray, saved];
+
       setClasses(updatedList);
       onClassesUpdate?.(updatedList);
-      toast.success(editing ? 'Clase actualizada' : 'Clase registrada');
-    } catch {
+
+      toast.success(wasEditing ? 'Clase actualizada' : 'Clase registrada');
+    } catch (err) {
+      console.error('Error guardando clase:', err);
       toast.error('Error guardando clase');
     }
   };
@@ -127,27 +137,38 @@ export default function ClassesManager({
   const deleteClass = async (id, eventId) => {
     try {
       await api.delete(`/classes/${id}`);
-      setClasses(cs => cs.filter(c => c._id !== id));
+
+      const updated = classesArray.filter((c) => c._id !== id);
+      setClasses(updated);
+      onClassesUpdate?.(updated);
+
       toast.success('Clase eliminada de la app');
 
       if (eventId) {
         let token = calendarToken;
+
         if (!token) {
           token = await new Promise((res, rej) => {
-            const client = initCalendarTokenClient(r => r.error ? rej(r) : res(r.access_token));
+            const client = initCalendarTokenClient((r) =>
+              r?.error ? rej(r) : res(r.access_token)
+            );
             client.requestAccessToken();
           });
-          setCalendarToken(token);
+
+          setCalendarToken?.(token);
           localStorage.setItem('calendarAccessToken', token);
         }
+
         await deleteCalendarEvent(token, eventId);
         toast.success('Evento eliminado de Calendar');
         refreshCalendar?.();
       }
-    } catch {
+    } catch (err) {
+      console.error('Error eliminando clase:', err);
       toast.error('Error eliminando clase');
     }
   };
+
   return (
     <div>
       <Typography variant="h4" sx={{ mt: 3 }}>
@@ -162,54 +183,56 @@ export default function ClassesManager({
           <ClassForm
             initialData={editing}
             onSubmit={saveClass}
-            teachers={teachers}
-            spaces={spaces}
-            modalities={modalities}    // ← pásalo aquí también
+            teachers={teachersArray}
+            spaces={spacesArray}
+            modalities={modalitiesArray}
           />
         </AccordionDetails>
-      </Accordion>   
+      </Accordion>
 
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography>Listado de Clases</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          <List>
-          {classes.map(c => {
-            // Si c.space es un objeto (populate), úsalo; si es sólo un ID, búscalo en spaces[]
-            const spaceName =
-              // 1) si c.space ya es objeto con .name
-              (typeof c.space === 'object' && c.space?.name)
-              // 2) si c.space es ID, lo buscamos en el array
-              || spaces.find(s => s._id === c.space)?.name
-              // 3) fallback
-              || 'Sin espacio';
+          {classesArray.length === 0 ? (
+            <Typography>No hay clases registradas.</Typography>
+          ) : (
+            <List>
+              {classesArray.map((c) => {
+                const spaceName =
+                  (typeof c.space === 'object' && c.space?.name) ||
+                  spacesArray.find((s) => s._id === c.space)?.name ||
+                  'Sin espacio';
 
-            const modName = c.modality?.name || '—';
-            return (
-              <ListItem key={c._id} divider>
-                <ListItemText
-                  primary={`${c.title} — ${spaceName}`}
-                  secondary={
-                    `Modalidad: ${modName} ` +
-                    `| Profesor: ${c.professor} ` +
-                    `| ${new Date(c.schedule).toLocaleString()}`
-                  }
-                  />
-                  <IconButton onClick={() => setEditing(c)}>
-                    <EditIcon color="primary" />
-                  </IconButton>
-                  <IconButton onClick={() => deleteClass(c._id, c.eventId)}>
-                    <DeleteIcon color="error" />
-                  </IconButton>
-                </ListItem>
-              );
-            })}
-          </List>
+                const modName =
+                  c.modality?.name ||
+                  modalitiesArray.find((m) => m._id === c.modality)?.name ||
+                  '—';
+
+                return (
+                  <ListItem key={c._id} divider>
+                    <ListItemText
+                      primary={`${c.title} — ${spaceName}`}
+                      secondary={
+                        `Modalidad: ${modName} ` +
+                        `| Profesor: ${c.professor || '—'} ` +
+                        `| ${c.schedule ? new Date(c.schedule).toLocaleString() : 'Sin horario'}`
+                      }
+                    />
+                    <IconButton onClick={() => setEditing(c)}>
+                      <EditIcon color="primary" />
+                    </IconButton>
+                    <IconButton onClick={() => deleteClass(c._id, c.eventId)}>
+                      <DeleteIcon color="error" />
+                    </IconButton>
+                  </ListItem>
+                );
+              })}
+            </List>
+          )}
         </AccordionDetails>
       </Accordion>
     </div>
   );
 }
-
-
