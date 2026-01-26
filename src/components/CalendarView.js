@@ -1,28 +1,15 @@
 // src/components/CalendarView.js
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Calendar, Views } from 'react-big-calendar';
 import localizer from '../services/calendarLocalizer';
 import { listUpcomingEvents } from '../services/calendarService';
+import { requestGoogleAccessToken } from '../services/googleAuth';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { Typography } from '@mui/material';
 import useEventReminders from '../hooks/useEventReminders';
 
-// Funciones auxiliares para formatear la fecha en "YYYY-MM-DDTHH:mm:ss"
-const pad = (num) => String(num).padStart(2, '0');
-
-const formatLocalDateTime = (date) => {
-  const year = date.getFullYear();
-  const month = pad(date.getMonth() + 1);
-  const day = pad(date.getDate());
-  const hours = pad(date.getHours());
-  const minutes = pad(date.getMinutes());
-  const seconds = pad(date.getSeconds());
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
-};
-
-// Función que mapea el colorId a un estilo (usada en eventPropGetter)
-const eventStyleGetter = (event, start, end, isSelected) => {
-  // Mapeo de colorId a colores (ajusta según tus preferencias y los valores permitidos por Google Calendar)
+// Función que mapea el colorId a un estilo
+const eventStyleGetter = (event) => {
   const colorMapping = {
     "1": "#a4bdfc",
     "2": "#7ae7bf",
@@ -37,18 +24,18 @@ const eventStyleGetter = (event, start, end, isSelected) => {
     "11": "#dc2127"
   };
 
-  // Se utiliza un color por defecto si no existe colorId o no se encuentra en el mapeo
-  const backgroundColor = event.colorId ? colorMapping[event.colorId] || '#3174ad' : '#3174ad';
-  const style = {
-    backgroundColor,
-    borderRadius: '0px',
-    opacity: 0.8,
-    color: 'black',
-    border: '0px',
-    display: 'block'
-  };
+  const backgroundColor = event.colorId ? (colorMapping[event.colorId] || '#3174ad') : '#3174ad';
 
-  return { style };
+  return {
+    style: {
+      backgroundColor,
+      borderRadius: '0px',
+      opacity: 0.8,
+      color: 'black',
+      border: '0px',
+      display: 'block'
+    }
+  };
 };
 
 // Mensajes en español para el calendario
@@ -72,40 +59,56 @@ const messages = {
 const CalendarView = ({ accessToken, refresh }) => {
   const [events, setEvents] = useState([]);
 
-  // Función para transformar los eventos recibidos desde Google Calendar
   const transformEvents = (googleEvents) => {
-    return googleEvents.map((event) => {
-      const start = new Date(event.start.dateTime || event.start.date);
-      const end = new Date(event.end.dateTime || event.end.date);
+    return (Array.isArray(googleEvents) ? googleEvents : []).map((event) => {
+      const start = new Date(event.start?.dateTime || event.start?.date);
+      const end = new Date(event.end?.dateTime || event.end?.date);
       return {
         title: event.summary || 'Sin título',
         start,
         end,
         description: event.description || '',
-        colorId: event.colorId // Conserva el colorId si existe
+        colorId: event.colorId
       };
     });
   };
 
-  // Función para obtener eventos desde Google Calendar
-  const fetchCalendarEvents = async () => {
+  const getValidAccessToken = useCallback(async () => {
+    // 1) preferir el token guardado (access token real)
+    let token = localStorage.getItem('google_access_token');
+
+    // 2) si no hay, intentar usar el prop (solo si existe)
+    if (!token && accessToken) token = accessToken;
+
+    // 3) si sigue sin existir, pedir uno nuevo
+    if (!token) {
+      token = await requestGoogleAccessToken();
+      localStorage.setItem('google_access_token', token);
+    }
+
+    return token;
+  }, [accessToken]);
+
+  const fetchCalendarEvents = useCallback(async () => {
     try {
-      const googleEvents = await listUpcomingEvents(accessToken);
-      console.log("Eventos recibidos:", googleEvents);
+      const token = await getValidAccessToken();
+      const googleEvents = await listUpcomingEvents(token);
       const transformed = transformEvents(googleEvents);
       setEvents(transformed);
     } catch (error) {
-      console.error("Error obteniendo eventos del calendario:", error);
+      console.error('Error obteniendo eventos del calendario:', error);
+
+      // si el token expiró o quedó inválido, lo borramos para forzar refresh
+      if (String(error?.message || '').includes('401')) {
+        localStorage.removeItem('google_access_token');
+      }
     }
-  };
+  }, [getValidAccessToken]);
 
   useEffect(() => {
-    if (accessToken) {
-      fetchCalendarEvents();
-    }
-  }, [accessToken, refresh]);
+    fetchCalendarEvents();
+  }, [fetchCalendarEvents, refresh]);
 
-  // (Opcional) Hook para recordatorios de eventos
   useEventReminders(events);
 
   return (
@@ -113,6 +116,7 @@ const CalendarView = ({ accessToken, refresh }) => {
       <Typography variant="h5" gutterBottom>
         Calendario
       </Typography>
+
       <Calendar
         localizer={localizer}
         events={events}
@@ -121,15 +125,13 @@ const CalendarView = ({ accessToken, refresh }) => {
         startAccessor="start"
         endAccessor="end"
         messages={messages}
-        eventPropGetter={eventStyleGetter}  // Se aplica la función para asignar estilos
+        eventPropGetter={eventStyleGetter}
         style={{ height: '90%' }}
-        step={60}            // Cada franja de 60 minutos en lugar de 30
-        timeslots={1}        // Un solo hueco por step
+        step={60}
+        timeslots={1}
       />
     </div>
   );
 };
 
 export default CalendarView;
-
-
