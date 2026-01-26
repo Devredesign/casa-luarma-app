@@ -205,7 +205,6 @@ const PaymentManager = ({ classesList, students, onPaymentsUpdate }) => {
             <List>
               {filteredPayments.map(p => {
                 const stu = students.find(s => s._id === p.studentId) || {};
-                const dateObj = new Date(p.paymentDate);
                 return (
                   <ListItem key={p._id} divider sx={{ alignItems: 'flex-start' }}>
                     <ListItemText
