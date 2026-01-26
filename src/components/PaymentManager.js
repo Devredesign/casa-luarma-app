@@ -204,7 +204,6 @@ const PaymentManager = ({ classesList, students, onPaymentsUpdate }) => {
           ) : (
             <List>
               {filteredPayments.map(p => {
-                const cls = classesList.find(c => c._id === p.classId) || {};
                 const stu = students.find(s => s._id === p.studentId) || {};
                 const dateObj = new Date(p.paymentDate);
                 return (
