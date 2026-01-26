@@ -1,5 +1,5 @@
 // src/components/TeacherManager.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../services/api';
 import {
   Box,
@@ -30,22 +30,30 @@ const TeacherManager = ({ onTeachersUpdate }) => {
   });
   const [editingTeacher, setEditingTeacher] = useState(null);
 
+  // SAFE array (evita crash si teachers no es array)
+  const teachersArray = useMemo(
+    () => (Array.isArray(teachers) ? teachers : []),
+    [teachers]
+  );
+
   // Fetch teachers
   const fetchTeachers = useCallback(async () => {
-  try {
-    const res = await api.get('/teachers');
-    setTeachers(res.data || []);
-    onTeachersUpdate?.(res.data || []);
-  } catch (err) {
-    console.error('Error al obtener profesores:', err);
-    toast.error('Error al obtener profesores');
-  }
-}, [onTeachersUpdate]);
+    try {
+      const res = await api.get('/teachers');
+      const list = Array.isArray(res.data) ? res.data : [];
+      setTeachers(list);
+      onTeachersUpdate?.(list);
+    } catch (err) {
+      console.error('Error al obtener profesores:', err);
+      toast.error('Error al obtener profesores');
+      setTeachers([]);
+      onTeachersUpdate?.([]);
+    }
+  }, [onTeachersUpdate]);
 
-useEffect(() => {
-  fetchTeachers();
-}, [fetchTeachers]);
-
+  useEffect(() => {
+    fetchTeachers();
+  }, [fetchTeachers]);
 
   // Handle form field changes
   const handleChange = (e) => {
@@ -58,10 +66,13 @@ useEffect(() => {
     e.preventDefault();
     try {
       const res = await api.post('/teachers', formData);
-      const updated = [...teachers, res.data];
+
+      const updated = [...teachersArray, res.data];
       setTeachers(updated);
       onTeachersUpdate?.(updated);
+
       toast.success('Profesor registrado exitosamente');
+
       // Reset form
       setFormData({ name: '', email: '', phone: '', specialty: '', availability: '' });
     } catch (err) {
@@ -73,13 +84,20 @@ useEffect(() => {
   // Update existing teacher
   const updateTeacher = async (e) => {
     e.preventDefault();
-    if (!editingTeacher) return;
+    if (!editingTeacher?._id) return;
+
     try {
       const res = await api.patch(`/teachers/${editingTeacher._id}`, formData);
-      const updated = teachers.map(t => t._id === editingTeacher._id ? res.data : t);
+
+      const updated = teachersArray.map(t =>
+        t._id === editingTeacher._id ? res.data : t
+      );
+
       setTeachers(updated);
       onTeachersUpdate?.(updated);
+
       toast.success('Profesor actualizado exitosamente');
+
       // Reset
       setEditingTeacher(null);
       setFormData({ name: '', email: '', phone: '', specialty: '', availability: '' });
@@ -93,9 +111,12 @@ useEffect(() => {
   const deleteTeacher = async (id) => {
     try {
       await api.delete(`/teachers/${id}`);
-      const updated = teachers.filter(t => t._id !== id);
+
+      const updated = teachersArray.filter(t => t._id !== id);
+
       setTeachers(updated);
       onTeachersUpdate?.(updated);
+
       toast.success('Profesor eliminado exitosamente');
     } catch (err) {
       console.error('Error al eliminar profesor:', err);
@@ -107,12 +128,17 @@ useEffect(() => {
   const handleEdit = (teacher) => {
     setEditingTeacher(teacher);
     setFormData({
-      name: teacher.name || '',
-      email: teacher.email || '',
-      phone: teacher.phone || '',
-      specialty: teacher.specialty || '',
-      availability: teacher.availability || '',
+      name: teacher?.name || '',
+      email: teacher?.email || '',
+      phone: teacher?.phone || '',
+      specialty: teacher?.specialty || '',
+      availability: teacher?.availability || '',
     });
+  };
+
+  const handleCancel = () => {
+    setEditingTeacher(null);
+    setFormData({ name: '', email: '', phone: '', specialty: '', availability: '' });
   };
 
   return (
@@ -128,7 +154,11 @@ useEffect(() => {
           </Typography>
         </AccordionSummary>
         <AccordionDetails>
-          <Box component="form" onSubmit={editingTeacher ? updateTeacher : addTeacher} sx={{ mt: 2 }}>
+          <Box
+            component="form"
+            onSubmit={editingTeacher ? updateTeacher : addTeacher}
+            sx={{ mt: 2 }}
+          >
             <TextField
               label="Nombre"
               name="name"
@@ -172,18 +202,13 @@ useEffect(() => {
               fullWidth
               margin="normal"
             />
+
             <Button type="submit" variant="contained" sx={{ mt: 1 }}>
               {editingTeacher ? 'Actualizar' : 'Registrar'}
             </Button>
+
             {editingTeacher && (
-              <Button
-                variant="text"
-                sx={{ mt: 1, ml: 2 }}
-                onClick={() => {
-                  setEditingTeacher(null);
-                  setFormData({ name: '', email: '', phone: '', specialty: '', availability: '' });
-                }}
-              >
+              <Button variant="text" sx={{ mt: 1, ml: 2 }} onClick={handleCancel}>
                 Cancelar
               </Button>
             )}
@@ -196,15 +221,15 @@ useEffect(() => {
           <Typography>Listado de Profesores</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          {teachers.length === 0 ? (
+          {teachersArray.length === 0 ? (
             <Typography>No hay profesores registrados.</Typography>
           ) : (
             <List>
-              {teachers.map((teacher) => (
+              {teachersArray.map((teacher) => (
                 <ListItem key={teacher._id} divider>
                   <ListItemText
-                    primary={teacher.name}
-                    secondary={`${teacher.email} | ${teacher.phone} | Especialidad: ${teacher.specialty} | Disponibilidad: ${teacher.availability}`}
+                    primary={teacher?.name || 'Sin nombre'}
+                    secondary={`${teacher?.email || 'N/A'} | ${teacher?.phone || 'N/A'} | Especialidad: ${teacher?.specialty || 'N/A'} | Disponibilidad: ${teacher?.availability || 'N/A'}`}
                   />
                   <IconButton edge="end" aria-label="editar" onClick={() => handleEdit(teacher)}>
                     <EditIcon color="primary" />
