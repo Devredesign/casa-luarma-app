@@ -1,8 +1,7 @@
 // src/components/AdminDashboard.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Typography, Button, Divider, Tabs, Tab, Box, Fab } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 import QuickActionDialog from './QuickActionDialog';
 import SpacesManager from './SpacesManager';
@@ -20,7 +19,7 @@ import TeacherPayouts from './TeacherPayouts';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 
-// ✅ nuevo: auth manager (token + expiración + silent)
+// ✅ auth manager (token + expiración + silent)
 import { getCalendarAccessToken, clearCalendarToken } from '../services/calendarAuth';
 
 export default function AdminDashboard() {
@@ -37,6 +36,14 @@ export default function AdminDashboard() {
 
   const [calendarToken, setCalendarToken] = useState(null);
   const [refreshCal, setRefreshCal] = useState(false);
+
+  // ✅ SAFE arrays (por si algún fetch trae algo raro)
+  const teachersArr = useMemo(() => (Array.isArray(teachers) ? teachers : []), [teachers]);
+  const spacesArr = useMemo(() => (Array.isArray(spaces) ? spaces : []), [spaces]);
+  const studentsArr = useMemo(() => (Array.isArray(students) ? students : []), [students]);
+  const classesArr = useMemo(() => (Array.isArray(classes) ? classes : []), [classes]);
+  const rentalsArr = useMemo(() => (Array.isArray(rentals) ? rentals : []), [rentals]);
+  const modalitiesArr = useMemo(() => (Array.isArray(modalities) ? modalities : []), [modalities]);
 
   // —————————————— Callbacks estables ——————————————
   const handleClassesUpdate = useCallback((cls) => {
@@ -59,17 +66,37 @@ export default function AdminDashboard() {
   }, []);
 
   // Fuerza refresco de calendario
-  const onCalendarChange = () => setRefreshCal((f) => !f);
+  const onCalendarChange = useCallback(() => setRefreshCal((f) => !f), []);
 
   // —————————————— Cargar datos maestros ——————————————
   useEffect(() => {
-    api.get('/teachers').then(r => setTeachers(Array.isArray(r.data) ? r.data : [])).catch(() => toast.error('Error cargando profesores'));
-    api.get('/spaces').then(r => setSpaces(Array.isArray(r.data) ? r.data : [])).catch(() => toast.error('Error cargando espacios'));
-    api.get('/students').then(r => setStudents(Array.isArray(r.data) ? r.data : [])).catch(() => toast.error('Error cargando estudiantes'));
-    api.get('/classes').then(r => setClasses(Array.isArray(r.data) ? r.data : [])).catch(() => toast.error('Error cargando clases'));
-    api.get('/rentals').then(r => setRentals(Array.isArray(r.data) ? r.data : [])).catch(() => toast.error('Error cargando alquileres'));
-    api.get('/modalities').then(r => setModalities(Array.isArray(r.data) ? r.data : [])).catch(() => toast.error('Error cargando modalidades'));
-    api.get('/costs').then(r => setCosts(Array.isArray(r.data) ? r.data : [])).catch(() => toast.error('Error cargando costos'));
+    api.get('/teachers')
+      .then(r => setTeachers(Array.isArray(r.data) ? r.data : []))
+      .catch(() => toast.error('Error cargando profesores'));
+
+    api.get('/spaces')
+      .then(r => setSpaces(Array.isArray(r.data) ? r.data : []))
+      .catch(() => toast.error('Error cargando espacios'));
+
+    api.get('/students')
+      .then(r => setStudents(Array.isArray(r.data) ? r.data : []))
+      .catch(() => toast.error('Error cargando estudiantes'));
+
+    api.get('/classes')
+      .then(r => setClasses(Array.isArray(r.data) ? r.data : []))
+      .catch(() => toast.error('Error cargando clases'));
+
+    api.get('/rentals')
+      .then(r => setRentals(Array.isArray(r.data) ? r.data : []))
+      .catch(() => toast.error('Error cargando alquileres'));
+
+    api.get('/modalities')
+      .then(r => setModalities(Array.isArray(r.data) ? r.data : []))
+      .catch(() => toast.error('Error cargando modalidades'));
+
+    api.get('/costs')
+      .then(r => setCosts(Array.isArray(r.data) ? r.data : []))
+      .catch(() => toast.error('Error cargando costos'));
   }, []);
 
   // ✅ Intento silencioso de Calendar al entrar (sin popup)
@@ -79,16 +106,17 @@ export default function AdminDashboard() {
         const token = await getCalendarAccessToken({ interactiveFallback: false });
         if (token) {
           setCalendarToken(token);
-          // no toast aquí (si querés, ponelo)
+          // ✅ importante: refresca CalendarView por si tenía un 401 previo
+          onCalendarChange();
         }
       } catch (e) {
         // Normal: a veces no se puede silent; queda el botón para conectar
         console.log('Calendar token silent no disponible (ok):', e?.error || e);
       }
     })();
-  }, []);
+  }, [onCalendarChange]);
 
-  // ✅ Botón: pedir token interactivo (popup/consent) solo si hace falta
+  // ✅ Botón: pedir token interactivo (popup/consent)
   const handleRequestCalendarAccess = async () => {
     try {
       const token = await getCalendarAccessToken({ interactiveFallback: true });
@@ -103,114 +131,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Quick action button state
-  const [qaOpen, setQaOpen] = useState(false);
-
-  // —————————————— Tabs ——————————————
-  const [tabIndex, setTabIndex] = useState(0);
-  const handleTabChange = (_, newIndex) => setTabIndex(newIndex);
-
-  return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h3" gutterBottom>
-        Dashboard del Administrador
-      </Typography>
-
-      {/* Calendar */}
-      {calendarToken ? (
-        <CalendarView accessToken={calendarToken} refresh={refreshCal} />
-      ) : (
-        <Typography sx={{ mb: 2 }}>
-          Calendar no conectado (opcional). Si lo conectás, se sincronizan clases y alquileres.
-        </Typography>
-      )}
-
-      <Button variant="contained" onClick={handleRequestCalendarAccess} sx={{ mb: 2 }}>
-        Conectar con Google Calendar
-      </Button>
-
-      {/* Quick action */}
-      <Fab
-        color="primary"
-        onClick={() => setQaOpen(true)}
-        sx={{ position: 'fixed', bottom: 16, right: 16 }}
-      >
-        <AddIcon />
-      </Fab>
-
-      <QuickActionDialog
-        open={qaOpen}
-        onClose={() => setQaOpen(false)}
-        spaces={spaces}
-        classesList={classes}
-        students={students}
-      />
-
-      {/* Tabs */}
-      <Tabs value={tabIndex} onChange={handleTabChange} aria-label="Secciones de gestión" sx={{ mb: 2 }}>
-        <Tab label="Matrícula" />
-        <Tab label="Alquileres" />
-        <Tab label="Finanzas" />
-      </Tabs>
-
-      <TabPanel value={tabIndex} index={0}>
-        <StudentsManager onStudentsUpdate={setStudents} />
-
-        <ClassesManager
-          teachers={teachers}
-          spaces={spaces}
-          modalities={modalities}
-          calendarToken={calendarToken}
-          setCalendarToken={setCalendarToken}
-          onClassesUpdate={handleClassesUpdate}
-          refreshCalendar={onCalendarChange}
-        />
-
-        <ModalitiesManager onModalitiesUpdate={setModalities} />
-
-        <TeacherManager onTeachersUpdate={setTeachers} />
-
-        <PaymentManager
-          classesList={classes}
-          students={students}
-          onPaymentsUpdate={handlePaymentsUpdate}
-        />
-      </TabPanel>
-
-      <TabPanel value={tabIndex} index={1}>
-        <RentalManager
-          spaces={spaces}
-          calendarToken={calendarToken}
-          setCalendarToken={setCalendarToken}
-          onRentalsUpdate={handleRentalsUpdate}
-          onEventSynced={onCalendarChange}   {/* ✅ ESTE era el mismatch */}
-        />
-
-        <SpacesManager onSpacesUpdate={setSpaces} />
-      </TabPanel>
-
-      <TabPanel value={tabIndex} index={2}>
-        <FinancialSummary
-          month={new Date().getMonth() + 1}
-          year={new Date().getFullYear()}
-          refresh={financeRefresh}
-        />
-
-        <Divider sx={{ my: 2 }} />
-
-        <TeacherPayouts />
-
-        <CostsManager onCostsUpdate={handleCostsUpdate} />
-      </TabPanel>
-    </Box>
-  );
-}
-
-// Helper TabPanel
-function TabPanel({ children, value, index, ...other }) {
-  return (
-    <div role="tabpanel" hidden={value !== index} {...other}>
-      {value === index && <Box sx={{ pt: 2 }}>{children}</Box>}
-    </div>
-  );
-}
+  // (Opcional) botón para desconectar token
+  const handleDisconnectCalendar = () => {
+    clearCalenda
