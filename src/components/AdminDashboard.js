@@ -186,14 +186,24 @@ export default function AdminDashboard() {
       </Fab>
 
       <QuickActionDialog
-        open={qaOpen}
-        onClose={() => setQaOpen(false)}
-        spaces={spacesArr}
-        classesList={classesArr}
-        students={studentsArr}
-        modalities={modalities}  
-        teachers={teachers}  
-      />
+  open={qaOpen}
+  onClose={() => setQaOpen(false)}
+  spaces={spaces}
+  classesList={classes}
+  students={students}
+
+  teachers={teachers}           // ✅ para crear clase
+  modalities={modalities}       // ✅ para el dropdown de modalidad
+
+  calendarToken={calendarToken} // ✅ para sync calendar si aplica
+  setCalendarToken={setCalendarToken}
+
+  onStudentsUpdate={setStudents}
+  onRentalsUpdate={handleRentalsUpdate}
+  onPaymentsUpdate={handlePaymentsUpdate}
+  onClassesUpdate={handleClassesUpdate}
+  onTeachersUpdate={setTeachers}
+/>
 
       {/* Tabs */}
       <Tabs value={tabIndex} onChange={handleTabChange} aria-label="Secciones de gestión" sx={{ mb: 2 }}>
