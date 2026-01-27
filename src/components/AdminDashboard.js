@@ -191,6 +191,8 @@ export default function AdminDashboard() {
         spaces={spacesArr}
         classesList={classesArr}
         students={studentsArr}
+        modalities={modalities}  
+        teachers={teachers}  
       />
 
       {/* Tabs */}
