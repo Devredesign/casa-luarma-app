@@ -133,4 +133,131 @@ export default function AdminDashboard() {
 
   // (Opcional) botón para desconectar token
   const handleDisconnectCalendar = () => {
-    clearCalenda
+    clearCalendarToken();
+    setCalendarToken(null);
+    toast.info('Calendar desconectado');
+    onCalendarChange();
+  };
+
+  // Quick action
+  const [qaOpen, setQaOpen] = useState(false);
+
+  // Tabs
+  const [tabIndex, setTabIndex] = useState(0);
+  const handleTabChange = (_, newIndex) => setTabIndex(newIndex);
+
+  return (
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h3" gutterBottom>
+        Dashboard del Administrador
+      </Typography>
+
+      {/* Calendar */}
+      {calendarToken ? (
+        <>
+          <CalendarView accessToken={calendarToken} refresh={refreshCal} />
+          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+            <Button variant="contained" onClick={handleRequestCalendarAccess}>
+              Renovar / Reconectar Calendar
+            </Button>
+            <Button variant="outlined" onClick={handleDisconnectCalendar}>
+              Desconectar
+            </Button>
+          </Box>
+        </>
+      ) : (
+        <>
+          <Typography sx={{ mb: 2 }}>
+            Calendar no conectado (opcional). Si lo conectás, se sincronizan clases y alquileres.
+          </Typography>
+          <Button variant="contained" onClick={handleRequestCalendarAccess} sx={{ mb: 2 }}>
+            Conectar con Google Calendar
+          </Button>
+        </>
+      )}
+
+      {/* Quick action */}
+      <Fab
+        color="primary"
+        onClick={() => setQaOpen(true)}
+        sx={{ position: 'fixed', bottom: 16, right: 16 }}
+      >
+        <AddIcon />
+      </Fab>
+
+      <QuickActionDialog
+        open={qaOpen}
+        onClose={() => setQaOpen(false)}
+        spaces={spacesArr}
+        classesList={classesArr}
+        students={studentsArr}
+      />
+
+      {/* Tabs */}
+      <Tabs value={tabIndex} onChange={handleTabChange} aria-label="Secciones de gestión" sx={{ mb: 2 }}>
+        <Tab label="Matrícula" />
+        <Tab label="Alquileres" />
+        <Tab label="Finanzas" />
+      </Tabs>
+
+      <TabPanel value={tabIndex} index={0}>
+        <StudentsManager onStudentsUpdate={setStudents} />
+
+        <ClassesManager
+          teachers={teachersArr}
+          spaces={spacesArr}
+          modalities={modalitiesArr}
+          calendarToken={calendarToken}
+          setCalendarToken={setCalendarToken}
+          onClassesUpdate={handleClassesUpdate}
+          refreshCalendar={onCalendarChange}
+        />
+
+        <ModalitiesManager onModalitiesUpdate={setModalities} />
+
+        <TeacherManager onTeachersUpdate={setTeachers} />
+
+        <PaymentManager
+          classesList={classesArr}
+          students={studentsArr}
+          onPaymentsUpdate={handlePaymentsUpdate}
+        />
+      </TabPanel>
+
+      <TabPanel value={tabIndex} index={1}>
+        <RentalManager
+          spaces={spacesArr}
+          calendarToken={calendarToken}
+          setCalendarToken={setCalendarToken}
+          onRentalsUpdate={handleRentalsUpdate}
+          onEventSynced={onCalendarChange}
+        />
+
+        <SpacesManager onSpacesUpdate={setSpaces} />
+      </TabPanel>
+
+      <TabPanel value={tabIndex} index={2}>
+        <FinancialSummary
+          month={new Date().getMonth() + 1}
+          year={new Date().getFullYear()}
+          refresh={financeRefresh}
+        />
+
+        <Divider sx={{ my: 2 }} />
+
+        <TeacherPayouts />
+
+        <CostsManager onCostsUpdate={handleCostsUpdate} />
+      </TabPanel>
+    </Box>
+  );
+}
+
+// Helper TabPanel
+function TabPanel({ children, value, index, ...other }) {
+  return (
+    <div role="tabpanel" hidden={value !== index} {...other}>
+      {value === index && <Box sx={{ pt: 2 }}>{children}</Box>}
+    </div>
+  );
+}
