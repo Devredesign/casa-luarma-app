@@ -37,6 +37,30 @@ export function getStoredCalendarToken() {
   return s.access_token;
 }
 
+// ✅ espera a que google.accounts exista (evita AbortError por carrera)
+function waitForGoogleAccounts({ timeoutMs = 8000 } = {}) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+
+    const tick = () => {
+      const ok =
+        typeof window !== 'undefined' &&
+        window.google &&
+        window.google.accounts &&
+        window.google.accounts.oauth2 &&
+        typeof window.google.accounts.oauth2.initTokenClient === 'function';
+
+      if (ok) return resolve(true);
+      if (Date.now() - start > timeoutMs) {
+        return reject(new Error('Google GSI no está listo (timeout)'));
+      }
+      setTimeout(tick, 50);
+    };
+
+    tick();
+  });
+}
+
 function ensureTokenClient(callback) {
   if (tokenClient) {
     tokenClient.callback = callback;
@@ -51,10 +75,12 @@ function ensureTokenClient(callback) {
 }
 
 /**
- * interactive=false => intenta silent (sin popup). Si no puede, lanza error.
+ * interactive=false => intenta silent (sin popup).
  * interactive=true  => abre popup/consent.
  */
-export function requestCalendarToken({ interactive }) {
+export async function requestCalendarToken({ interactive }) {
+  await waitForGoogleAccounts(); // ✅ importantísimo
+
   return new Promise((resolve, reject) => {
     const client = ensureTokenClient((resp) => {
       if (!resp) return reject(new Error('Respuesta vacía de Google'));
@@ -64,6 +90,29 @@ export function requestCalendarToken({ interactive }) {
       resolve(resp.access_token);
     });
 
+    // prompt: '' intenta silent; 'consent' fuerza popup
     client.requestAccessToken({ prompt: interactive ? 'consent' : '' });
   });
+}
+
+/**
+ * ✅ Lo que necesita tu AdminDashboard:
+ * - si hay token guardado válido => lo devuelve
+ * - si no => intenta silent
+ * - si interactiveFallback=true y silent falla => hace popup/consent
+ */
+export async function getCalendarAccessToken({ interactiveFallback = true } = {}) {
+  const stored = getStoredCalendarToken();
+  if (stored) return stored;
+
+  try {
+    // intento silent
+    return await requestCalendarToken({ interactive: false });
+  } catch (err) {
+    // si no queremos fallback interactivo, devolvemos null
+    if (!interactiveFallback) return null;
+
+    // fallback a popup/consent
+    return await requestCalendarToken({ interactive: true });
+  }
 }
