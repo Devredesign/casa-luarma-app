@@ -66,7 +66,8 @@ export default function QuickActionDialog({
           <Button variant="contained" onClick={() => handleSelectAction('pagar')}>
             Guardar Pago
           </Button>
-          <Button variant="contained" onClick={() => handleSelectAction('crearClase')}>
+          <Button variant="contained" onClick={() => handleSelectAction('crearClase')}
+            disabled={!teachers?.length || !modalities?.length}>
             Crear Clase
           </Button>
           <Button variant="contained" onClick={() => handleSelectAction('anadirProfe')}>
