@@ -24,6 +24,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 
 const pad = (num) => String(num).padStart(2, '0');
+
 const formatLocalDateTime = (date) => {
   const year = date.getFullYear();
   const month = pad(date.getMonth() + 1);
@@ -35,7 +36,7 @@ const formatLocalDateTime = (date) => {
 };
 
 const RentalManager = ({
-  spaces,
+  spaces = [],
   onRentalsUpdate,
   calendarToken,
   setCalendarToken,
@@ -48,17 +49,13 @@ const RentalManager = ({
   const rentalsArray = useMemo(() => (Array.isArray(rentals) ? rentals : []), [rentals]);
   const spacesArray = useMemo(() => (Array.isArray(spaces) ? spaces : []), [spaces]);
 
-  const safeCallOnRentalsUpdate = (data) => {
-    if (typeof onRentalsUpdate === 'function') {
-      onRentalsUpdate(data);
-    } else if (onRentalsUpdate !== undefined) {
-      console.warn('[RentalManager] onRentalsUpdate NO es función:', onRentalsUpdate);
-    }
-  };
+  const safeCallOnRentalsUpdate = useCallback((data) => {
+    if (typeof onRentalsUpdate === 'function') onRentalsUpdate(data);
+  }, [onRentalsUpdate]);
 
-  const safeCallOnEventSynced = () => {
+  const safeCallOnEventSynced = useCallback(() => {
     if (typeof onEventSynced === 'function') onEventSynced();
-  };
+  }, [onEventSynced]);
 
   // Carga inicial de alquileres
   const fetchRentals = useCallback(async () => {
@@ -73,7 +70,7 @@ const RentalManager = ({
       setRentals([]);
       safeCallOnRentalsUpdate([]);
     }
-  }, []); // sin dependencias para evitar recreación
+  }, [safeCallOnRentalsUpdate]);
 
   useEffect(() => {
     fetchRentals();
@@ -83,9 +80,9 @@ const RentalManager = ({
   const saveRental = async (rentalData) => {
     try {
       let res;
-      const wasEditing = Boolean(editingRental);
+      const wasEditing = Boolean(editingRental?._id);
 
-      if (editingRental?._id) {
+      if (wasEditing) {
         res = await api.patch(`/rentals/${editingRental._id}`, rentalData);
       } else {
         res = await api.post('/rentals', rentalData);
@@ -97,15 +94,20 @@ const RentalManager = ({
       if (calendarToken) {
         const startDate = new Date(rentalData.startTime || saved.startTime);
         const endDate = new Date(
-          startDate.getTime() +
-            Number(rentalData.hours ?? saved.hours) * 3600000
+          startDate.getTime() + Number(rentalData.hours ?? saved.hours) * 3600000
         );
+
         const days = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
         const dow = days[startDate.getDay()];
 
+        const savedSpaceId =
+          typeof saved.space === 'object' ? saved.space?._id : saved.space;
+
         const selectedSpace = spacesArray.find(
-          (s) => s._id?.toString() === (rentalData.space || saved.space)?.toString()
+          (s) =>
+            s._id?.toString() === (rentalData.space || savedSpaceId)?.toString()
         );
+
         const colorId = selectedSpace?.color ? String(selectedSpace.color) : undefined;
 
         const eventData = {
@@ -113,8 +115,14 @@ const RentalManager = ({
           description: `Alquiler de ${selectedSpace?.name || 'Espacio'} por ${
             rentalData.tenantName || saved.tenantName
           }`,
-          start: { dateTime: formatLocalDateTime(startDate), timeZone: 'America/Costa_Rica' },
-          end: { dateTime: formatLocalDateTime(endDate), timeZone: 'America/Costa_Rica' },
+          start: {
+            dateTime: formatLocalDateTime(startDate),
+            timeZone: 'America/Costa_Rica',
+          },
+          end: {
+            dateTime: formatLocalDateTime(endDate),
+            timeZone: 'America/Costa_Rica',
+          },
           ...(rentalData.isRecurring || saved.isRecurring
             ? { recurrence: [`RRULE:FREQ=WEEKLY;BYDAY=${dow}`] }
             : {}),
@@ -196,6 +204,12 @@ const RentalManager = ({
     }
   };
 
+  // ✅ Normaliza la data al editar para que el Select reciba un ID (no objeto)
+  const handleEdit = (r) => {
+    const spaceId = typeof r.space === 'object' ? r.space?._id : r.space;
+    setEditingRental({ ...r, space: spaceId });
+  };
+
   return (
     <div>
       <Typography variant="h4" gutterBottom sx={{ mt: 3 }}>
@@ -208,7 +222,7 @@ const RentalManager = ({
         </AccordionSummary>
         <AccordionDetails>
           <RentalForm
-            onAddRental={saveRental}   // ✅ IMPORTANTE: RentalForm espera onAddRental
+            onAddRental={saveRental}   // ✅ RentalForm espera onAddRental
             spaces={spacesArray}       // ✅ pasa array seguro
             initialData={editingRental}
           />
@@ -225,9 +239,12 @@ const RentalManager = ({
           ) : (
             <List>
               {rentalsArray.map((r) => {
+                const spaceId = typeof r.space === 'object' ? r.space?._id : r.space;
+
                 const selectedSpace = spacesArray.find(
-                  (s) => s._id?.toString() === r.space?.toString()
+                  (s) => s._id?.toString() === spaceId?.toString()
                 );
+
                 const spaceName = selectedSpace?.name || 'Sin espacio asignado';
 
                 return (
@@ -236,7 +253,7 @@ const RentalManager = ({
                       primary={`${r.activityName || 'Sin actividad'} — ${spaceName}`}
                       secondary={`Arrendatario: ${r.tenantName || 'N/A'} | Horas: ${r.hours ?? 'N/A'}`}
                     />
-                    <IconButton onClick={() => setEditingRental(r)}>
+                    <IconButton onClick={() => handleEdit(r)}>
                       <EditIcon color="primary" />
                     </IconButton>
                     <IconButton
