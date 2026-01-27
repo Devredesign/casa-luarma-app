@@ -44,6 +44,8 @@ export default function AdminDashboard() {
   const classesArr = useMemo(() => (Array.isArray(classes) ? classes : []), [classes]);
   const rentalsArr = useMemo(() => (Array.isArray(rentals) ? rentals : []), [rentals]);
   const modalitiesArr = useMemo(() => (Array.isArray(modalities) ? modalities : []), [modalities]);
+  const paymentsArr = useMemo(() => (Array.isArray(payments) ? payments : []), [payments]);
+  const costsArr = useMemo(() => (Array.isArray(costs) ? costs : []), [costs]);
 
   // —————————————— Callbacks estables ——————————————
   const handleClassesUpdate = useCallback((cls) => {
@@ -106,11 +108,9 @@ export default function AdminDashboard() {
         const token = await getCalendarAccessToken({ interactiveFallback: false });
         if (token) {
           setCalendarToken(token);
-          // ✅ importante: refresca CalendarView por si tenía un 401 previo
-          onCalendarChange();
+          onCalendarChange(); // refresca CalendarView
         }
       } catch (e) {
-        // Normal: a veces no se puede silent; queda el botón para conectar
         console.log('Calendar token silent no disponible (ok):', e?.error || e);
       }
     })();
@@ -186,24 +186,25 @@ export default function AdminDashboard() {
       </Fab>
 
       <QuickActionDialog
-  open={qaOpen}
-  onClose={() => setQaOpen(false)}
-  spaces={spaces}
-  classesList={classes}
-  students={students}
+        open={qaOpen}
+        onClose={() => setQaOpen(false)}
 
-  teachers={teachers}           // ✅ para crear clase
-  modalities={modalities}       // ✅ para el dropdown de modalidad
+        // ✅ pasar SAFE arrays (evita dropdowns vacíos por undefined)
+        spaces={spacesArr}
+        classesList={classesArr}
+        students={studentsArr}
+        teachers={teachersArr}
+        modalities={modalitiesArr}
 
-  calendarToken={calendarToken} // ✅ para sync calendar si aplica
-  setCalendarToken={setCalendarToken}
+        calendarToken={calendarToken}
+        setCalendarToken={setCalendarToken}
 
-  onStudentsUpdate={setStudents}
-  onRentalsUpdate={handleRentalsUpdate}
-  onPaymentsUpdate={handlePaymentsUpdate}
-  onClassesUpdate={handleClassesUpdate}
-  onTeachersUpdate={setTeachers}
-/>
+        onStudentsUpdate={setStudents}
+        onRentalsUpdate={handleRentalsUpdate}
+        onPaymentsUpdate={handlePaymentsUpdate}
+        onClassesUpdate={handleClassesUpdate}
+        onTeachersUpdate={setTeachers}
+      />
 
       {/* Tabs */}
       <Tabs value={tabIndex} onChange={handleTabChange} aria-label="Secciones de gestión" sx={{ mb: 2 }}>
