@@ -1,5 +1,5 @@
 // src/components/CostsManager.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import api from '../services/api';
 import CostForm from './CostForm';
 import {
@@ -21,25 +21,33 @@ export default function CostsManager() {
   const [costs, setCosts] = useState([]);
   const [editing, setEditing] = useState(null);
 
-  useEffect(() => {
-    const fetchCosts = async () => {
-      try {
-        const res = await api.get('/costs');
-        setCosts(res.data);
-      } catch (e) {
-        toast.error('Error al cargar costos');
-      }
-    };
-    fetchCosts();
-    // no cleanup necesario
+  // ✅ array seguro para render
+  const costsArray = useMemo(() => (Array.isArray(costs) ? costs : []), [costs]);
+
+  const fetchCosts = useCallback(async () => {
+    try {
+      const res = await api.get('/costs');
+      const list = Array.isArray(res.data) ? res.data : [];
+      setCosts(list);
+    } catch (e) {
+      console.error('Error al cargar costos:', e);
+      toast.error('Error al cargar costos');
+      setCosts([]);
+    }
   }, []);
 
-  const add = async data => {
+  useEffect(() => {
+    fetchCosts();
+  }, [fetchCosts]);
+
+  const add = async (data) => {
     try {
       const res = await api.post('/costs', data);
-      setCosts(prev => [...prev, res.data]);
+      const updated = [...costsArray, res.data];
+      setCosts(updated);
       toast.success('Costo agregado');
-    } catch {
+    } catch (e) {
+      console.error('Error agregando costo:', e);
       toast.error('Error agregando costo');
     }
   };
@@ -47,20 +55,24 @@ export default function CostsManager() {
   const update = async (id, data) => {
     try {
       const res = await api.patch(`/costs/${id}`, data);
-      setCosts(prev => prev.map(c => c._id === id ? res.data : c));
+      const updated = costsArray.map((c) => (c._id === id ? res.data : c));
+      setCosts(updated);
       setEditing(null);
       toast.success('Costo actualizado');
-    } catch {
+    } catch (e) {
+      console.error('Error actualizando costo:', e);
       toast.error('Error actualizando costo');
     }
   };
 
-  const remove = async id => {
+  const remove = async (id) => {
     try {
       await api.delete(`/costs/${id}`);
-      setCosts(prev => prev.filter(c => c._id !== id));
+      const updated = costsArray.filter((c) => c._id !== id);
+      setCosts(updated);
       toast.success('Costo eliminado');
-    } catch {
+    } catch (e) {
+      console.error('Error eliminando costo:', e);
       toast.error('Error eliminando costo');
     }
   };
@@ -82,8 +94,8 @@ export default function CostsManager() {
         </AccordionSummary>
         <AccordionDetails id="panel-cost-form-content">
           <CostForm
-            onSubmit={editing ? data => update(editing._id, data) : add}
-            initial={editing}
+            onSubmit={editing ? (data) => update(editing._id, data) : add}
+            initial={editing || undefined}
           />
         </AccordionDetails>
       </Accordion>
@@ -98,26 +110,35 @@ export default function CostsManager() {
           <Typography>Listado de Costos</Typography>
         </AccordionSummary>
         <AccordionDetails id="panel-cost-list-content">
-          <List>
-            {costs.map(c => (
-              <ListItem key={c._id} divider>
-                <ListItemText
-                  primary={`${c.name} — ₡${c.amount.toLocaleString()}`}
-                  secondary={
-                    c.type === 'fixed'
-                      ? 'Fijo, mensual'
-                      : `Variable, ${new Date(c.dateIncurred).toLocaleDateString()}`
-                  }
-                />
-                <IconButton onClick={() => setEditing(c)}>
-                  <EditIcon color="primary" />
-                </IconButton>
-                <IconButton onClick={() => remove(c._id)}>
-                  <DeleteIcon color="error" />
-                </IconButton>
-              </ListItem>
-            ))}
-          </List>
+          {costsArray.length === 0 ? (
+            <Typography>No hay costos registrados.</Typography>
+          ) : (
+            <List>
+              {costsArray.map((c) => {
+                const amount = Number(c.amount || 0);
+                const date = c.dateIncurred ? new Date(c.dateIncurred) : null;
+
+                return (
+                  <ListItem key={c._id} divider>
+                    <ListItemText
+                      primary={`${c.name || 'Sin nombre'} — ₡${amount.toLocaleString()}`}
+                      secondary={
+                        c.type === 'fixed'
+                          ? 'Fijo, mensual'
+                          : `Variable, ${date ? date.toLocaleDateString() : 'Sin fecha'}`
+                      }
+                    />
+                    <IconButton onClick={() => setEditing(c)}>
+                      <EditIcon color="primary" />
+                    </IconButton>
+                    <IconButton onClick={() => remove(c._id)}>
+                      <DeleteIcon color="error" />
+                    </IconButton>
+                  </ListItem>
+                );
+              })}
+            </List>
+          )}
         </AccordionDetails>
       </Accordion>
     </div>
