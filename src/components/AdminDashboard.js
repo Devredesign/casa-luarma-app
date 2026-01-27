@@ -204,6 +204,7 @@ export default function AdminDashboard() {
         onPaymentsUpdate={handlePaymentsUpdate}
         onClassesUpdate={handleClassesUpdate}
         onTeachersUpdate={setTeachers}
+        console.log('modalities in QuickActionDialog:', modalities);
       />
 
       {/* Tabs */}
