@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const Payment = require('../models/Payment');
+const Modality = require('../models/Modality');
 
 // GET /api/payments
 router.get('/', async (req, res) => {
@@ -16,10 +17,34 @@ router.get('/', async (req, res) => {
 
 // POST /api/payments
 router.post('/', async (req, res) => {
-  // Desestructura **TODOS** los campos que tu modelo requiere
-  const { classId, studentId, amount, method, paymentDate, sessions } = req.body;
-  const newPayment = new Payment({ classId, studentId, amount, method, paymentDate, sessions });
   try {
+    const { classId, studentId, modalityId, method, paymentDate, sessions } = req.body;
+
+    if (!classId || !studentId || !modalityId || !method || !paymentDate) {
+      return res.status(400).json({ message: 'Faltan campos requeridos.' });
+    }
+
+    const sessionsNum = Math.max(1, Number(sessions || 1));
+
+    const modality = await Modality.findById(modalityId);
+    if (!modality) return res.status(400).json({ message: 'Modalidad inválida.' });
+
+    const pricePerSession = Number(modality.price || 0);
+    const teacherPayPerSession = Number(modality.teacherPay || 0);
+    const amount = pricePerSession * sessionsNum;
+
+    const newPayment = new Payment({
+      classId,
+      studentId,
+      modalityId,
+      pricePerSession,
+      teacherPayPerSession,
+      amount,
+      method,
+      paymentDate,
+      sessions: sessionsNum
+    });
+
     const saved = await newPayment.save();
     res.status(201).json(saved);
   } catch (err) {
@@ -28,7 +53,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// (Opcional) PATCH /api/payments/:id
+// PATCH /api/payments/:id
 router.patch('/:id', async (req, res) => {
   try {
     const { status } = req.body;
