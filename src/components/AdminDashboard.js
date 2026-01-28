@@ -1,13 +1,23 @@
-// src/components/AdminDashboardResponsive.jsx
+// src/components/AdminDashboard.js
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Box, Typography, Button, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { useTheme } from '@mui/material/styles';
-import useMediaQuery from '@mui/material/useMediaQuery';
-import { toast } from 'react-toastify';
+import {
+  Box,
+  Typography,
+  Button,
+  Divider,
+  Tabs,
+  Tab,
+  Fab,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Grid,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
 
-import AdminDashboardDesktopWithSidebar from './AdminDashboardDesktopWithSidebar';
-import AdminDashboardMobile from './AdminDashboardMobile';
+import AddIcon from '@mui/icons-material/Add';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 import QuickActionDialog from './QuickActionDialog';
 import StudentsManager from './StudentsManager';
@@ -15,24 +25,33 @@ import ClassesManager from './ClassesManager';
 import ModalitiesManager from './ModalitiesManager';
 import TeacherManager from './TeacherManager';
 import PaymentManager from './PaymentManager';
+
 import RentalManager from './RentalManager';
 import SpacesManager from './SpacesManager';
+
 import FinancialSummary from './FinancialSummary';
 import TeacherPayouts from './TeacherPayouts';
 import CostsManager from './CostsManager';
+
 import CalendarView from './CalendarView';
 
+// ✅ Desktop layout con sidebar (el que ya tenés)
+import AdminDashboardDesktopWithSidebar from './AdminDashboardDesktopWithSidebar';
+// ✅ Mobile layout con footer sticky (asumiendo que ya existe en tu proyecto)
+import AdminDashboardMobileWithFooter from './AdminDashboardMobile';
+
 import api from '../services/api';
+import { toast } from 'react-toastify';
+
+// ✅ auth manager (token + expiración + silent)
 import { getCalendarAccessToken, clearCalendarToken } from '../services/calendarAuth';
 
-const LOGO_SRC = '/images/casaluarma-logo.png';
-
-export default function AdminDashboardResponsive() {
-  // ✅ Mobile solo en "sm" o menos. Tablet se comporta como desktop.
+export default function AdminDashboard() {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  // Tablet como desktop ✅
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
-  // Data
+  // —————————————— Estado global ——————————————
   const [teachers, setTeachers] = useState([]);
   const [spaces, setSpaces] = useState([]);
   const [students, setStudents] = useState([]);
@@ -43,26 +62,19 @@ export default function AdminDashboardResponsive() {
   const [costs, setCosts] = useState([]);
   const [financeRefresh, setFinanceRefresh] = useState(0);
 
-  // Nav
-  const [tabIndex, setTabIndex] = useState(0);
-
-  // Quick actions
-  const [qaOpen, setQaOpen] = useState(false);
-
-  // Calendar token + refresh
   const [calendarToken, setCalendarToken] = useState(null);
   const [refreshCal, setRefreshCal] = useState(false);
-  const onCalendarChange = useCallback(() => setRefreshCal((f) => !f), []);
 
-  // SAFE arrays
+  // —————————————— SAFE arrays ——————————————
   const teachersArr = useMemo(() => (Array.isArray(teachers) ? teachers : []), [teachers]);
   const spacesArr = useMemo(() => (Array.isArray(spaces) ? spaces : []), [spaces]);
   const studentsArr = useMemo(() => (Array.isArray(students) ? students : []), [students]);
   const classesArr = useMemo(() => (Array.isArray(classes) ? classes : []), [classes]);
   const rentalsArr = useMemo(() => (Array.isArray(rentals) ? rentals : []), [rentals]);
   const modalitiesArr = useMemo(() => (Array.isArray(modalities) ? modalities : []), [modalities]);
+  const costsArr = useMemo(() => (Array.isArray(costs) ? costs : []), [costs]);
 
-  // Callbacks estables (evitan renders raros)
+  // —————————————— Callbacks estables ——————————————
   const handleClassesUpdate = useCallback((cls) => {
     setClasses(Array.isArray(cls) ? cls : []);
     setFinanceRefresh((f) => f + 1);
@@ -82,44 +94,40 @@ export default function AdminDashboardResponsive() {
     setCosts(Array.isArray(c) ? c : []);
   }, []);
 
-  // ✅ Fetch maestro SOLO 1 vez al montar
+  const onCalendarChange = useCallback(() => setRefreshCal((f) => !f), []);
+
+  // —————————————— Cargar datos maestros (una sola vez) ——————————————
   useEffect(() => {
-    let alive = true;
+    api.get('/teachers')
+      .then((r) => setTeachers(Array.isArray(r.data) ? r.data : []))
+      .catch(() => toast.error('Error cargando profesores'));
 
-    const load = async () => {
-      try {
-        const [
-          tRes, sRes, stRes, cRes, rRes, mRes, costRes,
-        ] = await Promise.all([
-          api.get('/teachers'),
-          api.get('/spaces'),
-          api.get('/students'),
-          api.get('/classes'),
-          api.get('/rentals'),
-          api.get('/modalities'),
-          api.get('/costs'),
-        ]);
+    api.get('/spaces')
+      .then((r) => setSpaces(Array.isArray(r.data) ? r.data : []))
+      .catch(() => toast.error('Error cargando espacios'));
 
-        if (!alive) return;
+    api.get('/students')
+      .then((r) => setStudents(Array.isArray(r.data) ? r.data : []))
+      .catch(() => toast.error('Error cargando estudiantes'));
 
-        setTeachers(Array.isArray(tRes.data) ? tRes.data : []);
-        setSpaces(Array.isArray(sRes.data) ? sRes.data : []);
-        setStudents(Array.isArray(stRes.data) ? stRes.data : []);
-        setClasses(Array.isArray(cRes.data) ? cRes.data : []);
-        setRentals(Array.isArray(rRes.data) ? rRes.data : []);
-        setModalities(Array.isArray(mRes.data) ? mRes.data : []);
-        setCosts(Array.isArray(costRes.data) ? costRes.data : []);
-      } catch (e) {
-        console.error('Error cargando datos maestros:', e);
-        toast.error('Error cargando datos');
-      }
-    };
+    api.get('/classes')
+      .then((r) => setClasses(Array.isArray(r.data) ? r.data : []))
+      .catch(() => toast.error('Error cargando clases'));
 
-    load();
-    return () => { alive = false; };
+    api.get('/rentals')
+      .then((r) => setRentals(Array.isArray(r.data) ? r.data : []))
+      .catch(() => toast.error('Error cargando alquileres'));
+
+    api.get('/modalities')
+      .then((r) => setModalities(Array.isArray(r.data) ? r.data : []))
+      .catch(() => toast.error('Error cargando modalidades'));
+
+    api.get('/costs')
+      .then((r) => setCosts(Array.isArray(r.data) ? r.data : []))
+      .catch(() => toast.error('Error cargando costos'));
   }, []);
 
-  // ✅ Intento silencioso de Calendar al entrar
+  // ✅ Intento silencioso de Calendar al entrar (sin popup)
   useEffect(() => {
     (async () => {
       try {
@@ -129,20 +137,18 @@ export default function AdminDashboardResponsive() {
           onCalendarChange();
         }
       } catch (e) {
-        // normal si no hay sesión previa
-        console.log('Calendar silent no disponible (ok)');
+        // normal: no siempre se puede silent
       }
     })();
   }, [onCalendarChange]);
 
-  const handleConnectCalendar = useCallback(async () => {
+  const handleRequestCalendarAccess = useCallback(async () => {
     try {
       const token = await getCalendarAccessToken({ interactiveFallback: true });
       setCalendarToken(token);
       toast.success('Conectado a Google Calendar');
       onCalendarChange();
     } catch (e) {
-      console.error('Error conectando Calendar:', e);
       toast.error('Error conectando Google Calendar');
       clearCalendarToken();
       setCalendarToken(null);
@@ -156,107 +162,73 @@ export default function AdminDashboardResponsive() {
     onCalendarChange();
   }, [onCalendarChange]);
 
-  // ✅ Paneles (solo 1 sección a la vez: reduce scroll en móvil)
-  const renderSection = () => {
-    if (tabIndex === 0) {
-      return (
-        <>
-          <StudentsManager onStudentsUpdate={setStudents} />
+  // —————————————— Tabs ——————————————
+  const [tabIndex, setTabIndex] = useState(0);
 
-          <ClassesManager
-            teachers={teachersArr}
-            spaces={spacesArr}
-            modalities={modalitiesArr}
-            calendarToken={calendarToken}
-            setCalendarToken={setCalendarToken}
-            onClassesUpdate={handleClassesUpdate}
-            refreshCalendar={onCalendarChange}
-          />
-
-          <ModalitiesManager onModalitiesUpdate={setModalities} />
-          <TeacherManager onTeachersUpdate={setTeachers} />
-
-          <PaymentManager
-            classesList={classesArr}
-            students={studentsArr}
-            onPaymentsUpdate={handlePaymentsUpdate}
-          />
-        </>
-      );
-    }
-
-    if (tabIndex === 1) {
-      return (
-        <>
-          <RentalManager
-            spaces={spacesArr}
-            calendarToken={calendarToken}
-            setCalendarToken={setCalendarToken}
-            onRentalsUpdate={handleRentalsUpdate}
-            onEventSynced={onCalendarChange}
-          />
-          <SpacesManager onSpacesUpdate={setSpaces} />
-        </>
-      );
-    }
-
-    return (
-      <>
-        <FinancialSummary
-          month={new Date().getMonth() + 1}
-          year={new Date().getFullYear()}
-          refresh={financeRefresh}
-        />
-        <Box sx={{ my: 2 }} />
-        <TeacherPayouts />
-        <CostsManager onCostsUpdate={handleCostsUpdate} />
-      </>
-    );
-  };
-
-  // ✅ Calendario en Accordion (compacto)
-  const CalendarAccordion = (
-    <Accordion sx={{ mb: 2 }} defaultExpanded={false}>
-      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Typography fontWeight={700}>Calendario (próximos eventos)</Typography>
-      </AccordionSummary>
-      <AccordionDetails>
-        {calendarToken ? (
-          <>
-            <CalendarView accessToken={calendarToken} refresh={refreshCal} />
-            <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
-              <Button variant="contained" onClick={handleConnectCalendar}>
-                Renovar / Reconectar
-              </Button>
-              <Button variant="outlined" onClick={handleDisconnectCalendar}>
-                Desconectar
-              </Button>
-            </Box>
-          </>
-        ) : (
-          <>
-            <Typography sx={{ mb: 2 }}>
-              Calendar no conectado (opcional). Si lo conectás, se sincronizan clases y alquileres.
-            </Typography>
-            <Button variant="contained" onClick={handleConnectCalendar}>
-              Conectar con Google Calendar
-            </Button>
-          </>
-        )}
-      </AccordionDetails>
-    </Accordion>
-  );
+  // —————————————— Quick Action ——————————————
+  const [qaOpen, setQaOpen] = useState(false);
 
   const content = (
-    <Box sx={{ p: isMobile ? 1 : 0 }}>
-      <Typography variant={isMobile ? 'h5' : 'h4'} gutterBottom>
-        Dashboard del Administrador
-      </Typography>
+    <Box sx={{ p: isDesktop ? 0 : 2 }}>
+      {/* Calendar: en acordeón para no gastar espacio */}
+      <Accordion sx={{ mb: 2 }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography fontWeight={800}>Google Calendar</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          {calendarToken ? (
+            <>
+              <CalendarView accessToken={calendarToken} refresh={refreshCal} />
+              <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
+                <Button variant="contained" onClick={handleRequestCalendarAccess}>
+                  Renovar / Reconectar
+                </Button>
+                <Button variant="outlined" onClick={handleDisconnectCalendar}>
+                  Desconectar
+                </Button>
+              </Box>
+            </>
+          ) : (
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Typography sx={{ flex: 1 }}>
+                Calendar no conectado (opcional). Si lo conectás, se sincronizan clases y alquileres.
+              </Typography>
+              <Button variant="contained" onClick={handleRequestCalendarAccess}>
+                Conectar
+              </Button>
+            </Box>
+          )}
+        </AccordionDetails>
+      </Accordion>
 
-      {CalendarAccordion}
+      {/* Tabs */}
+      {!isDesktop && (
+        <Typography variant="h5" fontWeight={900} sx={{ mb: 1 }}>
+          Dashboard
+        </Typography>
+      )}
 
-      {renderSection()}
+      {!isDesktop && (
+        <Fab
+          color="primary"
+          onClick={() => setQaOpen(true)}
+          sx={{ position: 'fixed', bottom: 88, right: 16, zIndex: 1300 }}
+          aria-label="Acción rápida"
+        >
+          <AddIcon />
+        </Fab>
+      )}
 
+      {/* Desktop: el sidebar ya incluye botón Acción rápida */}
+      {isDesktop && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setQaOpen(true)}>
+            Acción rápida
+          </Button>
+        </Box>
+      )}
+
+      {/* Quick Action Dialog */}
       <QuickActionDialog
         open={qaOpen}
         onClose={() => setQaOpen(false)}
@@ -273,31 +245,180 @@ export default function AdminDashboardResponsive() {
         onClassesUpdate={handleClassesUpdate}
         onTeachersUpdate={setTeachers}
       />
+
+      {/* Tabs UI (desktop lo maneja sidebar, mobile footer lo maneja su layout) */}
+      {isDesktop && (
+        <Tabs
+          value={tabIndex}
+          onChange={(_, v) => setTabIndex(v)}
+          aria-label="Secciones de gestión"
+          sx={{ mb: 2 }}
+        >
+          <Tab label="Matrícula" />
+          <Tab label="Alquileres" />
+          <Tab label="Finanzas" />
+        </Tabs>
+      )}
+
+      {/* ===== MATRÍCULA ===== */}
+      <TabPanel value={tabIndex} index={0}>
+        {isDesktop ? (
+          <>
+            {/* ✅ 2 columnas SOLO para: estudiantes / clases / modalidades / profesores */}
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <StudentsManager onStudentsUpdate={setStudents} />
+                <ClassesManager
+                  teachers={teachersArr}
+                  spaces={spacesArr}
+                  modalities={modalitiesArr}
+                  calendarToken={calendarToken}
+                  setCalendarToken={setCalendarToken}
+                  onClassesUpdate={handleClassesUpdate}
+                  refreshCalendar={onCalendarChange}
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <ModalitiesManager onModalitiesUpdate={setModalities} />
+                <TeacherManager onTeachersUpdate={setTeachers} />
+              </Grid>
+            </Grid>
+
+            {/* ✅ estos se quedan a 1 sola fila (full width) */}
+            <Box sx={{ mt: 2 }}>
+              <PaymentManager
+                classesList={classesArr}
+                students={studentsArr}
+                onPaymentsUpdate={handlePaymentsUpdate}
+              />
+            </Box>
+          </>
+        ) : (
+          // Mobile: layout simple (el footer sticky maneja navegación)
+          <>
+            <StudentsManager onStudentsUpdate={setStudents} />
+            <ClassesManager
+              teachers={teachersArr}
+              spaces={spacesArr}
+              modalities={modalitiesArr}
+              calendarToken={calendarToken}
+              setCalendarToken={setCalendarToken}
+              onClassesUpdate={handleClassesUpdate}
+              refreshCalendar={onCalendarChange}
+            />
+            <ModalitiesManager onModalitiesUpdate={setModalities} />
+            <TeacherManager onTeachersUpdate={setTeachers} />
+            <PaymentManager
+              classesList={classesArr}
+              students={studentsArr}
+              onPaymentsUpdate={handlePaymentsUpdate}
+            />
+          </>
+        )}
+      </TabPanel>
+
+      {/* ===== ALQUILERES ===== */}
+      <TabPanel value={tabIndex} index={1}>
+        {isDesktop ? (
+          <>
+            {/* ✅ 2 columnas SOLO para: rental + spaces */}
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <RentalManager
+                  spaces={spacesArr}
+                  calendarToken={calendarToken}
+                  setCalendarToken={setCalendarToken}
+                  onRentalsUpdate={handleRentalsUpdate}
+                  onEventSynced={onCalendarChange}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <SpacesManager onSpacesUpdate={setSpaces} />
+              </Grid>
+            </Grid>
+          </>
+        ) : (
+          <>
+            <RentalManager
+              spaces={spacesArr}
+              calendarToken={calendarToken}
+              setCalendarToken={setCalendarToken}
+              onRentalsUpdate={handleRentalsUpdate}
+              onEventSynced={onCalendarChange}
+            />
+            <SpacesManager onSpacesUpdate={setSpaces} />
+          </>
+        )}
+      </TabPanel>
+
+      {/* ===== FINANZAS ===== */}
+      <TabPanel value={tabIndex} index={2}>
+        {/* ✅ FinancialSummary se queda full width */}
+        <FinancialSummary
+          month={new Date().getMonth() + 1}
+          year={new Date().getFullYear()}
+          refresh={financeRefresh}
+        />
+
+        <Divider sx={{ my: 2 }} />
+
+        {isDesktop ? (
+          <>
+            {/* ✅ 2 columnas SOLO para: desglose por profesor + costos */}
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <TeacherPayouts />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <CostsManager onCostsUpdate={handleCostsUpdate} />
+              </Grid>
+            </Grid>
+          </>
+        ) : (
+          <>
+            <TeacherPayouts />
+            <CostsManager onCostsUpdate={handleCostsUpdate} />
+          </>
+        )}
+      </TabPanel>
     </Box>
   );
 
-  // ✅ Switch UI
-  if (isMobile) {
+  // ✅ Logo en /public/images/
+  const logoSrc = '/images/casaluarma-logo.png'; // <-- ajustá el nombre exacto
+
+  if (isDesktop) {
     return (
-      <AdminDashboardMobile
-        logoSrc={LOGO_SRC}
+      <AdminDashboardDesktopWithSidebar
+        logoSrc={logoSrc}
         tabIndex={tabIndex}
         setTabIndex={setTabIndex}
         onQuickAction={() => setQaOpen(true)}
+        contentMaxWidth={1400}
       >
         {content}
-      </AdminDashboardMobile>
+      </AdminDashboardDesktopWithSidebar>
     );
   }
 
+  // Mobile sticky footer (tu archivo existente)
   return (
-    <AdminDashboardDesktopWithSidebar
-      logoSrc={LOGO_SRC}
+    <AdminDashboardMobileWithFooter
+      logoSrc={logoSrc}
       tabIndex={tabIndex}
       setTabIndex={setTabIndex}
-      onQuickAction={() => setQaOpen(true)}
     >
       {content}
-    </AdminDashboardDesktopWithSidebar>
+    </AdminDashboardMobileWithFooter>
+  );
+}
+
+// Helper TabPanel
+function TabPanel({ children, value, index, ...other }) {
+  return (
+    <div role="tabpanel" hidden={value !== index} {...other}>
+      {value === index && <Box sx={{ pt: 1 }}>{children}</Box>}
+    </div>
   );
 }
