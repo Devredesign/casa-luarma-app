@@ -37,7 +37,7 @@ import CostsManager from './CostsManager';
 import CalendarView from './CalendarView';
 
 import AdminDashboardDesktopWithSidebar from './AdminDashboardDesktopWithSidebar';
-import AdminDashboardMobileWithFooter from './AdminDashboardMobileWithFooter';
+import AdminDashboardMobileWithFooter from './AdminDashboardMobile';
 
 import api from '../services/api';
 import { toast } from 'react-toastify';
