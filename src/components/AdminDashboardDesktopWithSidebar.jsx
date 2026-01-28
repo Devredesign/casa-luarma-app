@@ -24,12 +24,19 @@ import AddIcon from '@mui/icons-material/Add';
 const drawerWidth = 260;
 const miniWidth = 72;
 
+// ✅ Ajustá este celeste si querés (es el header del sidebar)
+const SIDEBAR_HEADER_BG = '#38BDF8'; // celeste estilo "sky"
+const SIDEBAR_HEADER_TEXT = '#FFFFFF';
+
 export default function AdminDashboardDesktopWithSidebar({
   logoSrc,
   tabIndex,
   setTabIndex,
   onQuickAction,
-  children
+  children,
+
+  // opcional: si querés limitar ancho del contenido (estilo app famosa)
+  contentMaxWidth = 1400,
 }) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -49,22 +56,43 @@ export default function AdminDashboardDesktopWithSidebar({
           '& .MuiDrawer-paper': {
             width: collapsed ? miniWidth : drawerWidth,
             boxSizing: 'border-box',
-            overflowX: 'hidden'
+            overflowX: 'hidden',
           }
         }}
       >
-        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+        {/* ✅ HEADER celeste con letras blancas */}
+        <Box
+          sx={{
+            p: 2,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            backgroundColor: SIDEBAR_HEADER_BG,
+            color: SIDEBAR_HEADER_TEXT,
+          }}
+        >
           {logoSrc && (
             <Box
               component="img"
               src={logoSrc}
               alt="Casa Luarma"
-              sx={{ height: 36, width: 'auto' }}
+              sx={{ height: 34, width: 'auto' }}
             />
           )}
-          {!collapsed && <Typography fontWeight={800}>Casa Luarma</Typography>}
+
+          {!collapsed && (
+            <Typography fontWeight={800} sx={{ color: SIDEBAR_HEADER_TEXT }}>
+              Casa Luarma
+            </Typography>
+          )}
+
           <Box sx={{ flex: 1 }} />
-          <IconButton onClick={() => setCollapsed(v => !v)}>
+
+          <IconButton
+            onClick={() => setCollapsed(v => !v)}
+            sx={{ color: SIDEBAR_HEADER_TEXT }}
+            aria-label="Colapsar barra lateral"
+          >
             {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
           </IconButton>
         </Box>
@@ -93,7 +121,9 @@ export default function AdminDashboardDesktopWithSidebar({
               variant="contained"
               startIcon={<AddIcon />}
               onClick={onQuickAction}
-              sx={{ justifyContent: collapsed ? 'center' : 'flex-start' }}
+              sx={{
+                justifyContent: collapsed ? 'center' : 'flex-start'
+              }}
             >
               {!collapsed && 'Acción rápida'}
             </Button>
@@ -101,8 +131,11 @@ export default function AdminDashboardDesktopWithSidebar({
         </Box>
       </Drawer>
 
+      {/* ✅ CONTENIDO: más “app famosa” + espacio cómodo */}
       <Box sx={{ flex: 1, p: 3 }}>
-        {children}
+        <Box sx={{ maxWidth: contentMaxWidth, mx: 'auto' }}>
+          {children}
+        </Box>
       </Box>
     </Box>
   );
