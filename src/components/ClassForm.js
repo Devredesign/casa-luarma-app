@@ -1,5 +1,5 @@
 // src/components/ClassForm.js
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -17,55 +17,26 @@ export default function ClassForm({
   initialData,
   onSubmit,
   teachers = [],
-  spaces = [],
-  modalities = []
+  spaces = []
 }) {
-  // ✅ SAFE arrays (evita map/find si viene raro)
-  const teachersArr = useMemo(() => (Array.isArray(teachers) ? teachers : []), [teachers]);
-  const spacesArr = useMemo(() => (Array.isArray(spaces) ? spaces : []), [spaces]);
-  const modalitiesArr = useMemo(() => (Array.isArray(modalities) ? modalities : []), [modalities]);
-
-  // Helpers: soporta modalidad como objeto o como string id
-  const getModalityId = (m) => {
-    if (!m) return '';
-    if (typeof m === 'string') return m;
-    return m?._id || '';
-  };
-
-  const getSpaceId = (s) => {
-    if (!s) return '';
-    if (typeof s === 'string') return s;
-    return s?._id || '';
-  };
-
   const [formData, setFormData] = useState({
     title: initialData?.title || '',
-    modalityId: getModalityId(initialData?.modality),
     professor: initialData?.professor || '',
     schedule: initialData?.schedule ? initialData.schedule.substring(0, 16) : '',
-    spaceId: getSpaceId(initialData?.space),
-    isRecurring: Boolean(initialData?.isRecurring)
+    spaceId:
+      (typeof initialData?.space === 'object' ? initialData?.space?._id : initialData?.space) || '',
+    isRecurring: initialData?.isRecurring || false
   });
 
   useEffect(() => {
     if (initialData) {
       setFormData({
-        title: initialData?.title || '',
-        modalityId: getModalityId(initialData?.modality),
-        professor: initialData?.professor || '',
-        schedule: initialData?.schedule ? initialData.schedule.substring(0, 16) : '',
-        spaceId: getSpaceId(initialData?.space),
-        isRecurring: Boolean(initialData?.isRecurring)
-      });
-    } else {
-      // si cambias de editar -> nuevo
-      setFormData({
-        title: '',
-        modalityId: '',
-        professor: '',
-        schedule: '',
-        spaceId: '',
-        isRecurring: false
+        title: initialData.title || '',
+        professor: initialData.professor || '',
+        schedule: initialData.schedule ? initialData.schedule.substring(0, 16) : '',
+        spaceId:
+          (typeof initialData.space === 'object' ? initialData.space?._id : initialData.space) || '',
+        isRecurring: Boolean(initialData.isRecurring)
       });
     }
   }, [initialData]);
@@ -81,30 +52,18 @@ export default function ClassForm({
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // ✅ Busca modalidad (SAFE)
-    const mod = modalitiesArr.find((m) => String(m._id) === String(formData.modalityId));
-    const pricePerSession = Number(mod?.price ?? 0);
-
-    // ✅ Evita crash si schedule vacío
-    const scheduleISO = formData.schedule
-      ? new Date(formData.schedule).toISOString()
-      : null;
-
     onSubmit({
       title: formData.title,
-      modality: formData.modalityId,
-      price: pricePerSession,
       professor: formData.professor,
-      schedule: scheduleISO,
+      schedule: new Date(formData.schedule).toISOString(),
       space: formData.spaceId,
       isRecurring: formData.isRecurring
     });
 
-    // Limpia solo si es creación (en edición normalmente el padre decide)
+    // reset (solo si NO estás editando)
     if (!initialData) {
       setFormData({
         title: '',
-        modalityId: '',
         professor: '',
         schedule: '',
         spaceId: '',
@@ -130,29 +89,6 @@ export default function ClassForm({
       />
 
       <FormControl fullWidth required margin="normal">
-        <InputLabel>Modalidad</InputLabel>
-        <Select
-          name="modalityId"
-          value={formData.modalityId}
-          onChange={handleChange}
-          label="Modalidad"
-        >
-          <MenuItem value="">
-            <em>Seleccione modalidad</em>
-          </MenuItem>
-
-          {modalitiesArr.map((mod) => {
-            const price = Number(mod?.price ?? 0);
-            return (
-              <MenuItem key={mod._id} value={mod._id}>
-                {mod?.name || 'Sin nombre'} — ₡{price.toLocaleString()}
-              </MenuItem>
-            );
-          })}
-        </Select>
-      </FormControl>
-
-      <FormControl fullWidth required margin="normal">
         <InputLabel>Profesor</InputLabel>
         <Select
           name="professor"
@@ -163,8 +99,7 @@ export default function ClassForm({
           <MenuItem value="">
             <em>Seleccione profesor</em>
           </MenuItem>
-
-          {teachersArr.map((t) => (
+          {teachers.map((t) => (
             <MenuItem key={t._id} value={t.name}>
               {t.name}
             </MenuItem>
@@ -183,15 +118,11 @@ export default function ClassForm({
           <MenuItem value="">
             <em>Seleccione espacio</em>
           </MenuItem>
-
-          {spacesArr.map((s) => {
-            const p = Number(s?.pricePerHour ?? 0);
-            return (
-              <MenuItem key={s._id} value={s._id}>
-                {s?.name || 'Sin nombre'} — ₡{p.toLocaleString()}/h
-              </MenuItem>
-            );
-          })}
+          {spaces.map((s) => (
+            <MenuItem key={s._id} value={s._id}>
+              {s.name} — ₡{Number(s.pricePerHour || 0).toLocaleString()}/h
+            </MenuItem>
+          ))}
         </Select>
       </FormControl>
 
