@@ -24,7 +24,7 @@ import CostsManager from "./CostsManager";
 import CalendarView from "./CalendarView";
 
 // logo desde /public
-const LOGO_URL = "/casaluarma-logo.png";
+const LOGO_URL = "/images/casaluarma-logo.png";
 
 export default function AdminDashboardMobile(props) {
   const {
