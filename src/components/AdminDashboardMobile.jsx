@@ -7,7 +7,8 @@ import {
   Typography,
   IconButton,
   BottomNavigation,
-  BottomNavigationAction
+  BottomNavigationAction,
+  Paper
 } from '@mui/material';
 
 import AddIcon from '@mui/icons-material/Add';
@@ -22,6 +23,9 @@ export default function AdminDashboardMobile({
   onQuickAction,
   children
 }) {
+  // altura típica del BottomNavigation (puede variar por device)
+  const bottomNavHeight = 64;
+
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <AppBar position="sticky">
@@ -38,19 +42,39 @@ export default function AdminDashboardMobile({
         </Toolbar>
       </AppBar>
 
-      <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+      {/* ✅ contenido con padding-bottom para que el footer fijo no tape */}
+      <Box
+        sx={{
+          flex: 1,
+          overflow: 'auto',
+          p: 2,
+          pb: `${bottomNavHeight + 12}px`
+        }}
+      >
         {children}
       </Box>
 
-      <BottomNavigation
-        value={tabIndex}
-        onChange={(_, v) => setTabIndex(v)}
-        showLabels
+      {/* ✅ Footer sticky/fijo */}
+      <Paper
+        elevation={8}
+        sx={{
+          position: 'fixed',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 1300
+        }}
       >
-        <BottomNavigationAction label="Matrícula" icon={<SchoolIcon />} />
-        <BottomNavigationAction label="Alquileres" icon={<MeetingRoomIcon />} />
-        <BottomNavigationAction label="Finanzas" icon={<AttachMoneyIcon />} />
-      </BottomNavigation>
+        <BottomNavigation
+          value={tabIndex}
+          onChange={(_, v) => setTabIndex(v)}
+          showLabels
+        >
+          <BottomNavigationAction label="Matrícula" icon={<SchoolIcon />} />
+          <BottomNavigationAction label="Alquileres" icon={<MeetingRoomIcon />} />
+          <BottomNavigationAction label="Finanzas" icon={<AttachMoneyIcon />} />
+        </BottomNavigation>
+      </Paper>
     </Box>
   );
 }
