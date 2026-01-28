@@ -1,5 +1,5 @@
 // src/components/PaymentManager.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../services/api';
 import PaymentForm from './PaymentForm';
 import {
@@ -16,29 +16,33 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Grid
+  Grid,
+  Chip,
+  Stack
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { toast } from 'react-toastify';
 
-const PaymentManager = ({ classesList, students, onPaymentsUpdate }) => {
+const PaymentManager = ({ classesList, students, modalities, onPaymentsUpdate }) => {
   const [payments, setPayments] = useState([]);
   const [filters, setFilters] = useState({
     month: '',
     year: '',
     professor: '',
     student: '',
-    status: ''
+    status: '',
+    modalityId: ''
   });
 
-  // SAFE arrays (avoid crashes when props/state are not arrays yet)
-  const paymentsArray = Array.isArray(payments) ? payments : [];
-  const classesArray = Array.isArray(classesList) ? classesList : [];
-  const studentsArray = Array.isArray(students) ? students : [];
+  // SAFE arrays
+  const paymentsArray = useMemo(() => (Array.isArray(payments) ? payments : []), [payments]);
+  const classesArray = useMemo(() => (Array.isArray(classesList) ? classesList : []), [classesList]);
+  const studentsArray = useMemo(() => (Array.isArray(students) ? students : []), [students]);
+  const modalitiesArray = useMemo(() => (Array.isArray(modalities) ? modalities : []), [modalities]);
 
-  // Fetch payments initially (CI-safe deps)
+  // Fetch payments
   const fetchPayments = useCallback(async () => {
     try {
       const res = await api.get('/payments');
@@ -55,21 +59,20 @@ const PaymentManager = ({ classesList, students, onPaymentsUpdate }) => {
     fetchPayments();
   }, [fetchPayments]);
 
-  // Handler for adding a payment
+  // Add payment (✅ ahora incluye modalityId, y NO manda amount: backend lo calcula)
   const addPayment = async (data) => {
     try {
       const payload = {
         classId: data.classId,
         studentId: data.studentId,
-        amount: Number(data.amount),
+        modalityId: data.modalityId,
         method: data.method,
         paymentDate: data.date,
-        sessions: Number(data.sessions)
+        sessions: Number(data.sessions || 1)
       };
 
       const res = await api.post('/payments', payload);
 
-      // Ensure array update even if payments was weird
       const updated = [...paymentsArray, res.data];
       setPayments(updated);
       onPaymentsUpdate?.(updated);
@@ -77,11 +80,11 @@ const PaymentManager = ({ classesList, students, onPaymentsUpdate }) => {
       toast.success('Pago registrado exitosamente');
     } catch (err) {
       console.error('Error al registrar pago:', err.response?.data || err);
-      toast.error('Error al registrar pago');
+      toast.error(err.response?.data?.message || 'Error al registrar pago');
     }
   };
 
-  // Handler for deleting a payment
+  // Delete payment
   const deletePayment = async (id) => {
     try {
       await api.delete(`/payments/${id}`);
@@ -95,7 +98,7 @@ const PaymentManager = ({ classesList, students, onPaymentsUpdate }) => {
     }
   };
 
-  // Handler for marking a payment as paid
+  // Mark as paid
   const markAsPaid = async (id) => {
     try {
       const res = await api.patch(`/payments/${id}`, { status: 'paid' });
@@ -109,46 +112,73 @@ const PaymentManager = ({ classesList, students, onPaymentsUpdate }) => {
     }
   };
 
-  // Update filter state on change
+  // Filters
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
   };
 
-  // Apply filters to payments (SAFE)
-  const filteredPayments = paymentsArray.filter(p => {
-    const date = new Date(p.paymentDate);
-    const month = date.getMonth() + 1;
-    const year = date.getFullYear();
+  const resetFilters = () => {
+    setFilters({ month: '', year: '', professor: '', student: '', status: '', modalityId: '' });
+  };
 
-    const cls = classesArray.find(c => c._id === p.classId) || {};
-    const stu = studentsArray.find(s => s._id === p.studentId) || {};
+  // Filtered list
+  const filteredPayments = useMemo(() => {
+    return paymentsArray.filter(p => {
+      const date = new Date(p.paymentDate);
+      const month = date.getMonth() + 1;
+      const year = date.getFullYear();
 
-    let ok = true;
-    if (filters.month) ok = ok && month === Number(filters.month);
-    if (filters.year) ok = ok && year === Number(filters.year);
-    if (filters.professor) ok = ok && cls.professor === filters.professor;
-    if (filters.student) ok = ok && stu._id === filters.student;
-    if (filters.status) ok = ok && p.status === filters.status;
-    return ok;
-  });
+      const cls = classesArray.find(c => c._id === p.classId) || {};
+      const stu = studentsArray.find(s => s._id === p.studentId) || {};
 
-  // Unique filter options (SAFE)
-  const months = Array.from({ length: 12 }, (_, i) => i + 1);
-  const years = Array.from(
-    new Set(
-      paymentsArray
-        .map(p => new Date(p.paymentDate).getFullYear())
-        .filter(y => Number.isFinite(y))
-    )
-  );
-  const professors = Array.from(
-    new Set(
-      classesArray
-        .map(c => c.professor)
-        .filter(Boolean)
-    )
-  );
+      let ok = true;
+      if (filters.month) ok = ok && month === Number(filters.month);
+      if (filters.year) ok = ok && year === Number(filters.year);
+      if (filters.professor) ok = ok && cls.professor === filters.professor;
+      if (filters.student) ok = ok && stu._id === filters.student;
+      if (filters.status) ok = ok && p.status === filters.status;
+      if (filters.modalityId) ok = ok && String(p.modalityId) === String(filters.modalityId);
+
+      return ok;
+    });
+  }, [paymentsArray, classesArray, studentsArray, filters]);
+
+  // Filter options
+  const months = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
+  const years = useMemo(() => {
+    const ys = Array.from(
+      new Set(
+        paymentsArray
+          .map(p => new Date(p.paymentDate).getFullYear())
+          .filter(y => Number.isFinite(y))
+      )
+    ).sort((a, b) => b - a);
+
+    // si aún no hay pagos, igual mostrás el año actual
+    if (ys.length === 0) ys.push(new Date().getFullYear());
+    return ys;
+  }, [paymentsArray]);
+
+  const professors = useMemo(() => {
+    return Array.from(
+      new Set(
+        classesArray
+          .map(c => c.professor)
+          .filter(Boolean)
+      )
+    ).sort();
+  }, [classesArray]);
+
+  const modalityNameById = useCallback((id) => {
+    const m = modalitiesArray.find(x => String(x._id) === String(id));
+    return m?.name || '—';
+  }, [modalitiesArray]);
+
+  const classTitleById = useCallback((id) => {
+    const c = classesArray.find(x => String(x._id) === String(id));
+    return c?.title || 'Clase';
+  }, [classesArray]);
 
   return (
     <div>
@@ -163,13 +193,14 @@ const PaymentManager = ({ classesList, students, onPaymentsUpdate }) => {
           <PaymentForm
             classesList={classesArray}
             students={studentsArray}
+            modalities={modalitiesArray}
             onSubmit={addPayment}
           />
         </AccordionDetails>
       </Accordion>
 
       {/* Listado filtrado */}
-      <Accordion>
+      <Accordion defaultExpanded>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography>Listado de Pagos</Typography>
         </AccordionSummary>
@@ -246,6 +277,23 @@ const PaymentManager = ({ classesList, students, onPaymentsUpdate }) => {
 
             <Grid item xs={6} sm={2}>
               <FormControl fullWidth>
+                <InputLabel>Modalidad</InputLabel>
+                <Select
+                  name="modalityId"
+                  value={filters.modalityId}
+                  onChange={handleFilterChange}
+                  label="Modalidad"
+                >
+                  <MenuItem value=""><em>Todas</em></MenuItem>
+                  {modalitiesArray.map(m => (
+                    <MenuItem key={m._id} value={m._id}>{m.name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={6} sm={2}>
+              <FormControl fullWidth>
                 <InputLabel>Status</InputLabel>
                 <Select
                   name="status"
@@ -259,6 +307,18 @@ const PaymentManager = ({ classesList, students, onPaymentsUpdate }) => {
                 </Select>
               </FormControl>
             </Grid>
+
+            <Grid item xs={12}>
+              <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
+                <Button size="small" variant="outlined" onClick={resetFilters}>
+                  Limpiar filtros
+                </Button>
+                <Chip
+                  label={`${filteredPayments.length} pago(s)`}
+                  variant="outlined"
+                />
+              </Stack>
+            </Grid>
           </Grid>
 
           {filteredPayments.length === 0 ? (
@@ -266,12 +326,23 @@ const PaymentManager = ({ classesList, students, onPaymentsUpdate }) => {
           ) : (
             <List>
               {filteredPayments.map(p => {
-                const stu = studentsArray.find(s => s._id === p.studentId) || {};
+                const stu = studentsArray.find(s => String(s._id) === String(p.studentId)) || {};
+                const amount = Number(p.amount || 0);
+                const sessions = Number(p.sessions || 1);
+
                 return (
                   <ListItem key={p._id} divider sx={{ alignItems: 'flex-start' }}>
                     <ListItemText
-                      primary={`${stu.name || 'Estudiante'} — ₡${Number(p.amount || 0).toLocaleString()}`}
-                      secondary={`Clases: ${p.sessions ?? '-'} | Fecha: ${new Date(p.paymentDate).toLocaleDateString()} | Método: ${p.method || '-'}`}
+                      primary={`${stu.name || 'Estudiante'} — ₡${amount.toLocaleString()}`}
+                      secondary={
+                        [
+                          `Clase: ${classTitleById(p.classId)}`,
+                          `Modalidad (pago): ${modalityNameById(p.modalityId)}`,
+                          `Sesiones: ${sessions}`,
+                          `Fecha: ${new Date(p.paymentDate).toLocaleDateString()}`,
+                          `Método: ${p.method || '-'}`
+                        ].join(' | ')
+                      }
                     />
 
                     {p.status === 'pending' ? (
