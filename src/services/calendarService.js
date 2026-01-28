@@ -1,44 +1,85 @@
 // src/services/calendarService.js
 
 const BASE = 'https://www.googleapis.com/calendar/v3';
+const CAL_ID = 'primary';
 
-async function parseError(res) {
-  let bodyText = '';
-  try { bodyText = await res.text(); } catch {}
-  const err = new Error(`Error fetching events: ${res.status}`);
-  err.status = res.status;
-  err.body = bodyText;
-  return err;
+function authHeaders(accessToken) {
+  return {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  };
 }
 
-export async function listUpcomingEvents(accessToken, {
-  timeMin = new Date().toISOString(),
-  maxResults = 10,
-} = {}) {
-  if (!accessToken) throw new Error('Missing access token');
+export async function listUpcomingEvents(accessToken) {
+  const timeMin = new Date().toISOString();
+  const url = `${BASE}/calendars/${CAL_ID}/events?timeMin=${encodeURIComponent(timeMin)}&maxResults=10&singleEvents=true&orderBy=startTime`;
 
-  const url =
-    `${BASE}/calendars/primary/events` +
-    `?timeMin=${encodeURIComponent(timeMin)}` +
-    `&maxResults=${maxResults}` +
-    `&singleEvents=true` +
-    `&orderBy=startTime`;
+  const res = await fetch(url, { headers: authHeaders(accessToken) });
+  const data = await res.json().catch(() => ({}));
 
-  const res = await fetch(url, {
-    method: 'GET',
-    headers: {
-      // ✅ ESTA LÍNEA es clave:
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-
-  if (res.status === 401) {
-    const err = await parseError(res);
-    err.code = 'AUTH_401';
+  if (!res.ok) {
+    const err = new Error(`Error fetching events: ${res.status}`);
+    err.status = res.status;
+    err.data = data;
     throw err;
   }
+  return data;
+}
 
-  if (!res.ok) throw await parseError(res);
+export async function createCalendarEvent(accessToken, eventData) {
+  const url = `${BASE}/calendars/${CAL_ID}/events`;
 
-  return res.json();
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: authHeaders(accessToken),
+    body: JSON.stringify(eventData),
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    const err = new Error(`Error creating event: ${res.status}`);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
+export async function updateCalendarEvent(accessToken, eventId, eventData) {
+  const url = `${BASE}/calendars/${CAL_ID}/events/${encodeURIComponent(eventId)}`;
+
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: authHeaders(accessToken),
+    body: JSON.stringify(eventData),
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    const err = new Error(`Error updating event: ${res.status}`);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
+export async function deleteCalendarEvent(accessToken, eventId) {
+  const url = `${BASE}/calendars/${CAL_ID}/events/${encodeURIComponent(eventId)}`;
+
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers: authHeaders(accessToken),
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    const err = new Error(`Error deleting event: ${res.status}`);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return true;
 }
