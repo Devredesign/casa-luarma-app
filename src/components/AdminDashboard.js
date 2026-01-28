@@ -1,59 +1,56 @@
-
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+// src/components/AdminDashboard.js
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AppBar,
   Toolbar,
   Typography,
-  Box,
+  IconButton,
   Drawer,
+  Box,
+  Button,
+  Divider,
   List,
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Button,
-  Chip,
-  Grid,
-  Card,
-  CardContent,
-  Divider,
+  Tooltip,
   Fab,
-} from '@mui/material';
+  useMediaQuery,
+} from "@mui/material";
 
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import SchoolIcon from '@mui/icons-material/School';
-import EventIcon from '@mui/icons-material/Event';
-import PaymentsIcon from '@mui/icons-material/Payments';
-import BarChartIcon from '@mui/icons-material/BarChart';
-import AddIcon from '@mui/icons-material/Add';
+import MenuIcon from "@mui/icons-material/Menu";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import AddIcon from "@mui/icons-material/Add";
 
-import QuickActionDialog from './QuickActionDialog';
-import StudentsManager from './StudentsManager';
-import ClassesManager from './ClassesManager';
-import ModalitiesManager from './ModalitiesManager';
-import TeacherManager from './TeacherManager';
-import PaymentManager from './PaymentManager';
-import RentalManager from './RentalManager';
-import SpacesManager from './SpacesManager';
-import CostsManager from './CostsManager';
-import FinancialSummary from './FinancialSummary';
-import CalendarView from './CalendarView';
-import TeacherPayouts from './TeacherPayouts';
+import SchoolIcon from "@mui/icons-material/School";
+import EventAvailableIcon from "@mui/icons-material/EventAvailable";
+import PaidIcon from "@mui/icons-material/Paid";
 
-import api from '../services/api';
-import { toast } from 'react-toastify';
-import { getCalendarAccessToken, clearCalendarToken } from '../services/calendarAuth';
+import QuickActionDialog from "./QuickActionDialog";
+import StudentsManager from "./StudentsManager";
+import ClassesManager from "./ClassesManager";
+import ModalitiesManager from "./ModalitiesManager";
+import TeacherManager from "./TeacherManager";
+import PaymentManager from "./PaymentManager";
+import RentalManager from "./RentalManager";
+import SpacesManager from "./SpacesManager";
+import FinancialSummary from "./FinancialSummary";
+import TeacherPayouts from "./TeacherPayouts";
+import CostsManager from "./CostsManager";
+import CalendarView from "./CalendarView";
 
-const drawerWidth = 260;
+import api from "../services/api";
+import { toast } from "react-toastify";
+import { getCalendarAccessToken, clearCalendarToken } from "../services/calendarAuth";
 
-const SECTIONS = {
-  HOME: 'HOME',
-  MATRICULA: 'MATRICULA',
-  ALQUILERES: 'ALQUILERES',
-  FINANZAS: 'FINANZAS',
-};
+const DRAWER_WIDTH = 280;
+const DRAWER_WIDTH_MINI = 76;
 
 export default function AdminDashboardPro() {
-  // DATA
+  const isMobile = useMediaQuery((theme) => theme.breakpoints.down("md"));
+
+  // -------------------- Estado global --------------------
   const [teachers, setTeachers] = useState([]);
   const [spaces, setSpaces] = useState([]);
   const [students, setStudents] = useState([]);
@@ -68,10 +65,14 @@ export default function AdminDashboardPro() {
   const [refreshCal, setRefreshCal] = useState(false);
 
   // UI
-  const [section, setSection] = useState(SECTIONS.HOME);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [qaOpen, setQaOpen] = useState(false);
 
-  // SAFE arrays
+  // navegación (en vez de Tabs, más estilo app)
+  const [section, setSection] = useState("matricula"); // matricula | alquileres | finanzas
+
+  // -------------------- SAFE arrays --------------------
   const teachersArr = useMemo(() => (Array.isArray(teachers) ? teachers : []), [teachers]);
   const spacesArr = useMemo(() => (Array.isArray(spaces) ? spaces : []), [spaces]);
   const studentsArr = useMemo(() => (Array.isArray(students) ? students : []), [students]);
@@ -79,404 +80,384 @@ export default function AdminDashboardPro() {
   const rentalsArr = useMemo(() => (Array.isArray(rentals) ? rentals : []), [rentals]);
   const modalitiesArr = useMemo(() => (Array.isArray(modalities) ? modalities : []), [modalities]);
 
-  const onCalendarChange = useCallback(() => setRefreshCal((f) => !f), []);
-
-  // Load master data
-  useEffect(() => {
-    api.get('/teachers').then(r => setTeachers(Array.isArray(r.data) ? r.data : [])).catch(() => toast.error('Error cargando profesores'));
-    api.get('/spaces').then(r => setSpaces(Array.isArray(r.data) ? r.data : [])).catch(() => toast.error('Error cargando espacios'));
-    api.get('/students').then(r => setStudents(Array.isArray(r.data) ? r.data : [])).catch(() => toast.error('Error cargando estudiantes'));
-    api.get('/classes').then(r => setClasses(Array.isArray(r.data) ? r.data : [])).catch(() => toast.error('Error cargando clases'));
-    api.get('/rentals').then(r => setRentals(Array.isArray(r.data) ? r.data : [])).catch(() => toast.error('Error cargando alquileres'));
-    api.get('/modalities').then(r => setModalities(Array.isArray(r.data) ? r.data : [])).catch(() => toast.error('Error cargando modalidades'));
-    api.get('/costs').then(r => setCosts(Array.isArray(r.data) ? r.data : [])).catch(() => toast.error('Error cargando costos'));
-  }, []);
-
-  // silent calendar attempt
-  useEffect(() => {
-    (async () => {
-      try {
-        const token = await getCalendarAccessToken({ interactiveFallback: false });
-        if (token) {
-          setCalendarToken(token);
-          onCalendarChange();
-        }
-      } catch {}
-    })();
-  }, [onCalendarChange]);
-
-  const connectCalendar = async () => {
-    try {
-      const token = await getCalendarAccessToken({ interactiveFallback: true });
-      setCalendarToken(token);
-      toast.success('Conectado a Google Calendar');
-      onCalendarChange();
-    } catch (e) {
-      console.error(e);
-      toast.error('Error conectando Google Calendar');
-      clearCalendarToken();
-      setCalendarToken(null);
-    }
-  };
-
-  const disconnectCalendar = () => {
-    clearCalendarToken();
-    setCalendarToken(null);
-    toast.info('Calendar desconectado');
-    onCalendarChange();
-  };
-
-  // Callbacks (refrescan finanzas)
+  // -------------------- Callbacks estables --------------------
   const handleClassesUpdate = useCallback((cls) => {
     setClasses(Array.isArray(cls) ? cls : []);
     setFinanceRefresh((f) => f + 1);
   }, []);
-  const handleRentalsUpdate = useCallback((r) => {
-    setRentals(Array.isArray(r) ? r : []);
-    setFinanceRefresh((f) => f + 1);
-  }, []);
+
   const handlePaymentsUpdate = useCallback((p) => {
     setPayments(Array.isArray(p) ? p : []);
     setFinanceRefresh((f) => f + 1);
   }, []);
+
+  const handleRentalsUpdate = useCallback((r) => {
+    setRentals(Array.isArray(r) ? r : []);
+    setFinanceRefresh((f) => f + 1);
+  }, []);
+
   const handleCostsUpdate = useCallback((c) => {
     setCosts(Array.isArray(c) ? c : []);
   }, []);
 
-  // ---- “Resumen” para Home (ejemplo simple) ----
-  const todayStr = new Date().toLocaleDateString();
-  const classesCount = classesArr.length;
-  const rentalsCount = rentalsArr.length;
-  const studentsCount = studentsArr.length;
-  const spacesCount = spacesArr.length;
+  const onCalendarChange = useCallback(() => setRefreshCal((f) => !f), []);
 
-  const Content = () => {
-    if (section === SECTIONS.HOME) {
-      return (
-        <Box>
-          <Typography variant="h5" sx={{ mb: 2 }}>
-            Resumen • {todayStr}
-          </Typography>
+  // -------------------- Carga maestra (1 sola vez) --------------------
+  useEffect(() => {
+    let alive = true;
 
-          <Grid container spacing={2} sx={{ mb: 2 }}>
-            <Grid item xs={12} md={3}>
-              <Card>
-                <CardContent>
-                  <Typography variant="overline">Clases registradas</Typography>
-                  <Typography variant="h4">{classesCount}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Total en sistema
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
+    (async () => {
+      try {
+        // ⚠️ Importante: esto NO depende de ningún state => NO loop
+        const [
+          tRes,
+          sRes,
+          stRes,
+          cRes,
+          rRes,
+          mRes,
+          coRes,
+        ] = await Promise.all([
+          api.get("/teachers"),
+          api.get("/spaces"),
+          api.get("/students"),
+          api.get("/classes"),
+          api.get("/rentals"),
+          api.get("/modalities"),
+          api.get("/costs"),
+        ]);
 
-            <Grid item xs={12} md={3}>
-              <Card>
-                <CardContent>
-                  <Typography variant="overline">Alquileres registrados</Typography>
-                  <Typography variant="h4">{rentalsCount}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Total en sistema
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
+        if (!alive) return;
 
-            <Grid item xs={12} md={3}>
-              <Card>
-                <CardContent>
-                  <Typography variant="overline">Estudiantes</Typography>
-                  <Typography variant="h4">{studentsCount}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Total en base
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
+        setTeachers(Array.isArray(tRes.data) ? tRes.data : []);
+        setSpaces(Array.isArray(sRes.data) ? sRes.data : []);
+        setStudents(Array.isArray(stRes.data) ? stRes.data : []);
+        setClasses(Array.isArray(cRes.data) ? cRes.data : []);
+        setRentals(Array.isArray(rRes.data) ? rRes.data : []);
+        setModalities(Array.isArray(mRes.data) ? mRes.data : []);
+        setCosts(Array.isArray(coRes.data) ? coRes.data : []);
+      } catch (e) {
+        console.error("Error carga maestra:", e);
+        toast.error("Error cargando datos iniciales");
+      }
+    })();
 
-            <Grid item xs={12} md={3}>
-              <Card>
-                <CardContent>
-                  <Typography variant="overline">Espacios</Typography>
-                  <Typography variant="h4">{spacesCount}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Total registrados
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
+    return () => {
+      alive = false;
+    };
+  }, []);
 
-          <Grid container spacing={2}>
-            <Grid item xs={12} lg={7}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 1 }}>
-                    Agenda (Calendar)
-                  </Typography>
-                  {calendarToken ? (
-                    <CalendarView accessToken={calendarToken} refresh={refreshCal} />
-                  ) : (
-                    <Typography color="text.secondary">
-                      No conectado. Conectá Calendar para ver eventos aquí.
-                    </Typography>
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
+  // -------------------- Calendar: intento silencioso (1 sola vez) --------------------
+  useEffect(() => {
+    let alive = true;
 
-            <Grid item xs={12} lg={5}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 1 }}>
-                    Acciones rápidas
-                  </Typography>
-                  <Typography color="text.secondary" sx={{ mb: 2 }}>
-                    Creá una clase, alquiler o pago en segundos.
-                  </Typography>
-                  <Button variant="contained" onClick={() => setQaOpen(true)}>
-                    + Abrir acciones rápidas
-                  </Button>
+    (async () => {
+      try {
+        const token = await getCalendarAccessToken({ interactiveFallback: false });
+        if (!alive) return;
+        if (token) setCalendarToken(token);
+      } catch (e) {
+        // normal: si no puede silent, queda botón
+        console.log("Calendar silent no disponible (ok):", e?.error || e);
+      }
+    })();
 
-                  <Divider sx={{ my: 2 }} />
+    return () => {
+      alive = false;
+    };
+  }, []);
 
-                  <Typography variant="h6" sx={{ mb: 1 }}>
-                    Finanzas rápido
-                  </Typography>
-                  <FinancialSummary
-                    month={new Date().getMonth() + 1}
-                    year={new Date().getFullYear()}
-                    refresh={financeRefresh}
-                  />
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        </Box>
-      );
+  const handleRequestCalendarAccess = useCallback(async () => {
+    try {
+      const token = await getCalendarAccessToken({ interactiveFallback: true });
+      setCalendarToken(token);
+      toast.success("Conectado a Google Calendar");
+      onCalendarChange();
+    } catch (e) {
+      console.error("Error conectando Calendar:", e);
+      toast.error("Error conectando Google Calendar");
+      clearCalendarToken();
+      setCalendarToken(null);
     }
+  }, [onCalendarChange]);
 
-    if (section === SECTIONS.MATRICULA) {
-      return (
-        <Box>
-          <Typography variant="h5" sx={{ mb: 2 }}>Matrícula</Typography>
+  const handleDisconnectCalendar = useCallback(() => {
+    clearCalendarToken();
+    setCalendarToken(null);
+    toast.info("Calendar desconectado");
+    onCalendarChange();
+  }, [onCalendarChange]);
 
-          <Card sx={{ mb: 2 }}>
-            <CardContent>
-              <StudentsManager onStudentsUpdate={setStudents} />
-            </CardContent>
-          </Card>
+  // -------------------- Drawer handlers --------------------
+  const toggleMobileDrawer = () => setMobileOpen((v) => !v);
+  const toggleCollapsed = () => setSidebarCollapsed((v) => !v);
 
-          <Card sx={{ mb: 2 }}>
-            <CardContent>
-              <ClassesManager
-                teachers={teachersArr}
-                spaces={spacesArr}
-                modalities={modalitiesArr}
-                calendarToken={calendarToken}
-                setCalendarToken={setCalendarToken}
-                onClassesUpdate={handleClassesUpdate}
-                refreshCalendar={onCalendarChange}
-              />
-            </CardContent>
-          </Card>
+  const drawerWidth = sidebarCollapsed ? DRAWER_WIDTH_MINI : DRAWER_WIDTH;
 
-          <Grid container spacing={2}>
-            <Grid item xs={12} lg={6}>
-              <Card>
-                <CardContent>
-                  <ModalitiesManager onModalitiesUpdate={setModalities} />
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} lg={6}>
-              <Card>
-                <CardContent>
-                  <TeacherManager onTeachersUpdate={setTeachers} />
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-
-          <Card sx={{ mt: 2 }}>
-            <CardContent>
-              <PaymentManager
-                classesList={classesArr}
-                students={studentsArr}
-                onPaymentsUpdate={handlePaymentsUpdate}
-              />
-            </CardContent>
-          </Card>
-        </Box>
-      );
-    }
-
-    if (section === SECTIONS.ALQUILERES) {
-      return (
-        <Box>
-          <Typography variant="h5" sx={{ mb: 2 }}>Alquileres</Typography>
-
-          <Grid container spacing={2}>
-            <Grid item xs={12} lg={7}>
-              <Card>
-                <CardContent>
-                  <RentalManager
-                    spaces={spacesArr}
-                    calendarToken={calendarToken}
-                    setCalendarToken={setCalendarToken}
-                    onRentalsUpdate={handleRentalsUpdate}
-                    onEventSynced={onCalendarChange}
-                  />
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid item xs={12} lg={5}>
-              <Card>
-                <CardContent>
-                  <SpacesManager onSpacesUpdate={setSpaces} />
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        </Box>
-      );
-    }
-
-    // FINANZAS
-    return (
-      <Box>
-        <Typography variant="h5" sx={{ mb: 2 }}>Finanzas</Typography>
-
-        <Card sx={{ mb: 2 }}>
-          <CardContent>
-            <FinancialSummary
-              month={new Date().getMonth() + 1}
-              year={new Date().getFullYear()}
-              refresh={financeRefresh}
-            />
-          </CardContent>
-        </Card>
-
-        <Grid container spacing={2}>
-          <Grid item xs={12} lg={6}>
-            <Card>
-              <CardContent>
-                <TeacherPayouts />
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} lg={6}>
-            <Card>
-              <CardContent>
-                <CostsManager onCostsUpdate={handleCostsUpdate} />
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-      </Box>
-    );
+  const handleNavigate = (next) => {
+    setSection(next);
+    if (isMobile) setMobileOpen(false);
   };
 
+  // -------------------- Drawer content --------------------
+  const DrawerContent = (
+    <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <Box
+        sx={{
+          px: 2,
+          py: 1.5,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: sidebarCollapsed ? "center" : "space-between",
+          gap: 1,
+        }}
+      >
+        {!sidebarCollapsed && (
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            Casa Luarma
+          </Typography>
+        )}
+
+        {/* Retract button desktop */}
+        {!isMobile && (
+          <IconButton onClick={toggleCollapsed} size="small">
+            {sidebarCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+          </IconButton>
+        )}
+      </Box>
+
+      <Divider />
+
+      <List sx={{ px: 1 }}>
+        <Tooltip title="Matrícula" placement="right" disableHoverListener={!sidebarCollapsed}>
+          <ListItemButton
+            selected={section === "matricula"}
+            onClick={() => handleNavigate("matricula")}
+            sx={{ borderRadius: 2, mb: 0.5 }}
+          >
+            <ListItemIcon sx={{ minWidth: 42 }}>
+              <SchoolIcon />
+            </ListItemIcon>
+            {!sidebarCollapsed && <ListItemText primary="Matrícula" />}
+          </ListItemButton>
+        </Tooltip>
+
+        <Tooltip title="Alquileres" placement="right" disableHoverListener={!sidebarCollapsed}>
+          <ListItemButton
+            selected={section === "alquileres"}
+            onClick={() => handleNavigate("alquileres")}
+            sx={{ borderRadius: 2, mb: 0.5 }}
+          >
+            <ListItemIcon sx={{ minWidth: 42 }}>
+              <EventAvailableIcon />
+            </ListItemIcon>
+            {!sidebarCollapsed && <ListItemText primary="Alquileres" />}
+          </ListItemButton>
+        </Tooltip>
+
+        <Tooltip title="Finanzas" placement="right" disableHoverListener={!sidebarCollapsed}>
+          <ListItemButton
+            selected={section === "finanzas"}
+            onClick={() => handleNavigate("finanzas")}
+            sx={{ borderRadius: 2, mb: 0.5 }}
+          >
+            <ListItemIcon sx={{ minWidth: 42 }}>
+              <PaidIcon />
+            </ListItemIcon>
+            {!sidebarCollapsed && <ListItemText primary="Finanzas" />}
+          </ListItemButton>
+        </Tooltip>
+      </List>
+
+      <Box sx={{ flexGrow: 1 }} />
+
+      <Divider />
+
+      <Box sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1 }}>
+        {!sidebarCollapsed && (
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
+            Integraciones
+          </Typography>
+        )}
+
+        {calendarToken ? (
+          <>
+            <Button variant="contained" onClick={handleRequestCalendarAccess}>
+              Renovar Calendar
+            </Button>
+            <Button variant="outlined" onClick={handleDisconnectCalendar}>
+              Desconectar
+            </Button>
+          </>
+        ) : (
+          <Button variant="contained" onClick={handleRequestCalendarAccess}>
+            Conectar Calendar
+          </Button>
+        )}
+      </Box>
+    </Box>
+  );
+
+  // -------------------- Main content --------------------
+  const MainContent = (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      {/* Calendar view arriba (opcional) */}
+      {calendarToken ? (
+        <CalendarView accessToken={calendarToken} refresh={refreshCal} />
+      ) : (
+        <Typography sx={{ color: "text.secondary" }}>
+          Calendar no conectado (opcional). Si lo conectás, se sincronizan clases y alquileres.
+        </Typography>
+      )}
+
+      {section === "matricula" && (
+        <>
+          <StudentsManager onStudentsUpdate={setStudents} />
+
+          <ClassesManager
+            teachers={teachersArr}
+            spaces={spacesArr}
+            modalities={modalitiesArr}
+            calendarToken={calendarToken}
+            setCalendarToken={setCalendarToken}
+            onClassesUpdate={handleClassesUpdate}
+            refreshCalendar={onCalendarChange}
+          />
+
+          <ModalitiesManager onModalitiesUpdate={setModalities} />
+
+          <TeacherManager onTeachersUpdate={setTeachers} />
+
+          <PaymentManager
+            classesList={classesArr}
+            students={studentsArr}
+            onPaymentsUpdate={handlePaymentsUpdate}
+          />
+        </>
+      )}
+
+      {section === "alquileres" && (
+        <>
+          <RentalManager
+            spaces={spacesArr}
+            calendarToken={calendarToken}
+            setCalendarToken={setCalendarToken}
+            onRentalsUpdate={handleRentalsUpdate}
+            onEventSynced={onCalendarChange}
+          />
+
+          <SpacesManager onSpacesUpdate={setSpaces} />
+        </>
+      )}
+
+      {section === "finanzas" && (
+        <>
+          <FinancialSummary
+            month={new Date().getMonth() + 1}
+            year={new Date().getFullYear()}
+            refresh={financeRefresh}
+          />
+
+          <Divider sx={{ my: 1 }} />
+
+          <TeacherPayouts />
+
+          <CostsManager onCostsUpdate={handleCostsUpdate} />
+        </>
+      )}
+    </Box>
+  );
+
+  // -------------------- Render --------------------
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-      {/* TOPBAR */}
-      <AppBar position="fixed" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}>
-        <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
-          <Box>
-            <Typography variant="h6">Casa Luarma • Admin</Typography>
-            <Typography variant="caption" sx={{ opacity: 0.85 }}>
-              Panel de gestión
+    <Box sx={{ display: "flex", minHeight: "100vh" }}>
+      {/* AppBar */}
+      <AppBar
+        position="fixed"
+        sx={{
+          zIndex: (t) => t.zIndex.drawer + 1,
+        }}
+      >
+        <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            {isMobile && (
+              <IconButton color="inherit" edge="start" onClick={toggleMobileDrawer}>
+                <MenuIcon />
+              </IconButton>
+            )}
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              Admin Dashboard
             </Typography>
           </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {calendarToken ? (
-              <Chip label="Calendar: Conectado" variant="filled" />
-            ) : (
-              <Chip label="Calendar: No conectado" variant="outlined" />
-            )}
-
-            {calendarToken ? (
-              <>
-                <Button color="inherit" variant="outlined" onClick={connectCalendar}>
-                  Renovar
-                </Button>
-                <Button color="inherit" variant="outlined" onClick={disconnectCalendar}>
-                  Desconectar
-                </Button>
-              </>
-            ) : (
-              <Button color="inherit" variant="contained" onClick={connectCalendar}>
-                Conectar Calendar
-              </Button>
-            )}
-
-            <Button color="inherit" variant="contained" onClick={() => setQaOpen(true)}>
-              + Crear
+          <Box sx={{ display: "flex", gap: 1 }}>
+            {/* Botón quick-action (también existe el FAB abajo) */}
+            <Button
+              variant="contained"
+              color="secondary"
+              onClick={() => setQaOpen(true)}
+              sx={{ display: { xs: "none", sm: "inline-flex" } }}
+            >
+              Acción rápida
             </Button>
           </Box>
         </Toolbar>
       </AppBar>
 
-      {/* SIDEBAR */}
+      {/* Drawer MOBILE (overlay) */}
       <Drawer
-        variant="permanent"
+        variant="temporary"
+        open={isMobile ? mobileOpen : false}
+        onClose={toggleMobileDrawer}
+        ModalProps={{ keepMounted: true }}
         sx={{
-          width: drawerWidth,
-          flexShrink: 0,
-          [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' },
+          display: { xs: "block", md: "none" },
+          "& .MuiDrawer-paper": { width: DRAWER_WIDTH, boxSizing: "border-box" },
         }}
       >
-        <Toolbar />
-        <Box sx={{ overflow: 'auto', p: 1 }}>
-          <List>
-            <ListItemButton selected={section === SECTIONS.HOME} onClick={() => setSection(SECTIONS.HOME)}>
-              <ListItemIcon><DashboardIcon /></ListItemIcon>
-              <ListItemText primary="Inicio" secondary="Resumen y agenda" />
-            </ListItemButton>
-
-            <ListItemButton selected={section === SECTIONS.MATRICULA} onClick={() => setSection(SECTIONS.MATRICULA)}>
-              <ListItemIcon><SchoolIcon /></ListItemIcon>
-              <ListItemText primary="Matrícula" secondary="Estudiantes y clases" />
-            </ListItemButton>
-
-            <ListItemButton selected={section === SECTIONS.ALQUILERES} onClick={() => setSection(SECTIONS.ALQUILERES)}>
-              <ListItemIcon><EventIcon /></ListItemIcon>
-              <ListItemText primary="Alquileres" secondary="Reservas y espacios" />
-            </ListItemButton>
-
-            <ListItemButton selected={section === SECTIONS.FINANZAS} onClick={() => setSection(SECTIONS.FINANZAS)}>
-              <ListItemIcon><BarChartIcon /></ListItemIcon>
-              <ListItemText primary="Finanzas" secondary="Resumen, pagos y costos" />
-            </ListItemButton>
-          </List>
-
-          <Divider sx={{ my: 1 }} />
-
-          <Typography variant="caption" sx={{ px: 1, opacity: 0.7 }}>
-            Tip: Usá “+ Crear” para registrar rápido.
-          </Typography>
-        </Box>
+        {DrawerContent}
       </Drawer>
 
-      {/* MAIN */}
-      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-        <Toolbar />
-        <Content />
+      {/* Drawer DESKTOP (permanent, collapsible) */}
+      <Drawer
+        variant="permanent"
+        open
+        sx={{
+          display: { xs: "none", md: "block" },
+          "& .MuiDrawer-paper": {
+            width: drawerWidth,
+            boxSizing: "border-box",
+            transition: "width 180ms ease",
+            overflowX: "hidden",
+          },
+        }}
+      >
+        {DrawerContent}
+      </Drawer>
+
+      {/* Main */}
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: { xs: 2, md: 3 },
+          mt: 8, // espacio del AppBar
+          width: "100%",
+        }}
+      >
+        {MainContent}
       </Box>
 
-      {/* FAB (opcional para mobile) */}
+      {/* FAB Quick Action */}
       <Fab
         color="primary"
         onClick={() => setQaOpen(true)}
-        sx={{ position: 'fixed', bottom: 16, right: 16 }}
+        sx={{ position: "fixed", bottom: 16, right: 16 }}
       >
         <AddIcon />
       </Fab>
 
-      {/* QUICK ACTION */}
+      {/* Quick Action Dialog */}
       <QuickActionDialog
         open={qaOpen}
         onClose={() => setQaOpen(false)}
