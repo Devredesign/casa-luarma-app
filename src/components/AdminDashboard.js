@@ -24,7 +24,7 @@ import TeacherPayouts from "./TeacherPayouts";
 import CostsManager from "./CostsManager";
 import CalendarView from "./CalendarView";
 
-import LogoCasaLuarma from "../assets/casaluarma-logo.png"; // <- ajustá ruta
+import LogoCasaLuarma from "../images/casaluarma-logo.png"; // <- ajustá ruta
 
 export default function AdminDashboardDesktop(props) {
   const {
