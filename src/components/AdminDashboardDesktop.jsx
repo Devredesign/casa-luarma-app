@@ -26,7 +26,7 @@ import CalendarView from "./CalendarView";
 
 // ✅ Logo (ponelo en /public o /src/assets)
 // Opción A (recomendado): poné el archivo en /public y usá esto:
-const LOGO_URL = "/casaluarma-logo.png";
+const LOGO_URL = "/images/casaluarma-logo.png";
 
 export default function AdminDashboardDesktop(props) {
   const {
