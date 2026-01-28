@@ -24,8 +24,8 @@ import AddIcon from '@mui/icons-material/Add';
 const drawerWidth = 260;
 const miniWidth = 72;
 
-// ✅ Ajustá este celeste si querés (es el header del sidebar)
-const SIDEBAR_HEADER_BG = '#38BDF8'; // celeste estilo "sky"
+// ✅ Celeste exacto solicitado
+const SIDEBAR_HEADER_BG = '#1976d3';
 const SIDEBAR_HEADER_TEXT = '#FFFFFF';
 
 export default function AdminDashboardDesktopWithSidebar({
@@ -34,8 +34,6 @@ export default function AdminDashboardDesktopWithSidebar({
   setTabIndex,
   onQuickAction,
   children,
-
-  // opcional: si querés limitar ancho del contenido (estilo app famosa)
   contentMaxWidth = 1400,
 }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -57,6 +55,7 @@ export default function AdminDashboardDesktopWithSidebar({
             width: collapsed ? miniWidth : drawerWidth,
             boxSizing: 'border-box',
             overflowX: 'hidden',
+            borderRight: '1px solid rgba(0,0,0,0.08)',
           }
         }}
       >
@@ -99,21 +98,49 @@ export default function AdminDashboardDesktopWithSidebar({
 
         <Divider />
 
+        {/* ✅ Menú */}
         <List sx={{ pt: 1 }}>
           {items.map((it) => (
             <Tooltip key={it.label} title={collapsed ? it.label : ''} placement="right">
               <ListItemButton
                 selected={tabIndex === it.index}
                 onClick={() => setTabIndex(it.index)}
-                sx={{ py: 1.2 }}
+                sx={{
+                  py: 1.2,
+                  mx: 1,
+                  borderRadius: 2,
+                  '&.Mui-selected': {
+                    backgroundColor: 'rgba(25, 118, 211, 0.12)',
+                  },
+                  '&.Mui-selected:hover': {
+                    backgroundColor: 'rgba(25, 118, 211, 0.18)',
+                  },
+                }}
               >
-                <ListItemIcon>{it.icon}</ListItemIcon>
-                {!collapsed && <ListItemText primary={it.label} />}
+                <ListItemIcon
+                  sx={{
+                    minWidth: collapsed ? 'auto' : 40,
+                    color: tabIndex === it.index ? '#1976d3' : 'rgba(0,0,0,0.65)',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {it.icon}
+                </ListItemIcon>
+
+                {!collapsed && (
+                  <ListItemText
+                    primary={it.label}
+                    primaryTypographyProps={{
+                      fontWeight: tabIndex === it.index ? 700 : 600,
+                    }}
+                  />
+                )}
               </ListItemButton>
             </Tooltip>
           ))}
         </List>
 
+        {/* ✅ Footer del sidebar */}
         <Box sx={{ mt: 'auto', p: 2 }}>
           <Tooltip title={collapsed ? 'Acción rápida' : ''} placement="right">
             <Button
@@ -122,7 +149,8 @@ export default function AdminDashboardDesktopWithSidebar({
               startIcon={<AddIcon />}
               onClick={onQuickAction}
               sx={{
-                justifyContent: collapsed ? 'center' : 'flex-start'
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                px: collapsed ? 1 : 2,
               }}
             >
               {!collapsed && 'Acción rápida'}
@@ -131,7 +159,7 @@ export default function AdminDashboardDesktopWithSidebar({
         </Box>
       </Drawer>
 
-      {/* ✅ CONTENIDO: más “app famosa” + espacio cómodo */}
+      {/* ✅ Contenido */}
       <Box sx={{ flex: 1, p: 3 }}>
         <Box sx={{ maxWidth: contentMaxWidth, mx: 'auto' }}>
           {children}
