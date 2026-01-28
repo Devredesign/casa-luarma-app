@@ -4,17 +4,6 @@ const router  = express.Router();
 const Payment = require('../models/Payment');
 const Class   = require('../models/Class');
 
-// Costos según modalidad
-const teacherCost = {
-  individual: 35000,
-  pareja:     20000,
-  grupal:     18000
-};
-
-/**
- * GET /api/finance/teachers?month=MM&year=YYYY
- * Devuelve un array de { professor, totalIngress, totalToPay, profit }
- */
 router.get('/', async (req, res) => {
   try {
     const month = parseInt(req.query.month) || new Date().getMonth()+1;
@@ -22,37 +11,36 @@ router.get('/', async (req, res) => {
     const start = new Date(year, month-1, 1);
     const end   = new Date(year, month,   1);
 
-    // 1) Traer pagos de clases pagados en el rango
     const payments = await Payment.find({
       paymentDate: { $gte: start, $lt: end },
-      status:      'paid'
+      status: 'paid'
     });
 
-    // 2) Cargar info de clases referenciadas
     const classIds = [...new Set(payments.map(p => p.classId.toString()))];
     const classes  = await Class.find({ _id: { $in: classIds } });
     const classMap = Object.fromEntries(classes.map(c => [c._id.toString(), c]));
 
-    // 3) Agregar por profesor
     const summary = {};
+
     payments.forEach(p => {
-      const cls      = classMap[p.classId.toString()];
-      const prof     = cls?.professor || 'Sin profesor';
-      const mod      = cls?.modality;
-      const ingress  = p.amount;
-      const cost     = teacherCost[mod] || 0;
+      const cls = classMap[p.classId.toString()];
+      const prof = cls?.professor || 'Sin profesor';
+
+      const ingress = Number(p.amount || 0);
+      const sessions = Number(p.sessions || 1);
+      const payPerSession = Number(p.teacherPayPerSession || 0); // ✅ viene de modalidad en el pago
+      const toPay = payPerSession * sessions;
 
       if (!summary[prof]) summary[prof] = { professor: prof, totalIngress: 0, totalToPay: 0 };
       summary[prof].totalIngress += ingress;
-      summary[prof].totalToPay   += cost;
+      summary[prof].totalToPay += toPay;
     });
 
-    // 4) Crear array y calcular ganancia por profe
     const result = Object.values(summary).map(item => ({
-      professor:    item.professor,
+      professor: item.professor,
       totalIngress: item.totalIngress,
-      totalToPay:   item.totalToPay,
-      profit:       item.totalIngress - item.totalToPay
+      totalToPay: item.totalToPay,
+      totalProfit: item.totalIngress - item.totalToPay
     }));
 
     res.json(result);
