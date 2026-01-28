@@ -1,170 +1,156 @@
-import React, { useState } from "react";
-import {
-  AppBar,
-  Toolbar,
-  Typography,
-  Box,
-  Tabs,
-  Tab,
-  Divider,
-  Fab,
-} from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Box, useMediaQuery } from "@mui/material";
+import api from "../services/api";
+import { toast } from "react-toastify";
 
-import QuickActionDialog from "./QuickActionDialog";
-import StudentsManager from "./StudentsManager";
-import ClassesManager from "./ClassesManager";
-import ModalitiesManager from "./ModalitiesManager";
-import TeacherManager from "./TeacherManager";
-import PaymentManager from "./PaymentManager";
-import RentalManager from "./RentalManager";
-import SpacesManager from "./SpacesManager";
-import FinancialSummary from "./FinancialSummary";
-import TeacherPayouts from "./TeacherPayouts";
-import CostsManager from "./CostsManager";
-import CalendarView from "./CalendarView";
+import AdminDashboardDesktop from "./AdminDashboardDesktop";
+import AdminDashboardMobile from "./AdminDashboardMobile";
 
-import LogoCasaLuarma from "./casaluarma-logo.png"; // <- ajustá ruta
+import { getCalendarAccessToken } from "../services/calendarAuth";
 
-export default function AdminDashboardDesktop(props) {
-  const {
-    teachers,
-    spaces,
-    students,
-    classes,
-    modalities,
+export default function AdminDashboardResponsive() {
+  const isMobile = useMediaQuery((theme) => theme.breakpoints.down("md"));
+
+  // Estado único compartido (desktop y mobile)
+  const [teachers, setTeachers] = useState([]);
+  const [spaces, setSpaces] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [rentals, setRentals] = useState([]);
+  const [modalities, setModalities] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [costs, setCosts] = useState([]);
+  const [financeRefresh, setFinanceRefresh] = useState(0);
+
+  const [calendarToken, setCalendarToken] = useState(null);
+  const [refreshCal, setRefreshCal] = useState(false);
+
+  // SAFE arrays
+  const teachersArr = useMemo(() => (Array.isArray(teachers) ? teachers : []), [teachers]);
+  const spacesArr = useMemo(() => (Array.isArray(spaces) ? spaces : []), [spaces]);
+  const studentsArr = useMemo(() => (Array.isArray(students) ? students : []), [students]);
+  const classesArr = useMemo(() => (Array.isArray(classes) ? classes : []), [classes]);
+  const rentalsArr = useMemo(() => (Array.isArray(rentals) ? rentals : []), [rentals]);
+  const modalitiesArr = useMemo(() => (Array.isArray(modalities) ? modalities : []), [modalities]);
+  const paymentsArr = useMemo(() => (Array.isArray(payments) ? payments : []), [payments]);
+  const costsArr = useMemo(() => (Array.isArray(costs) ? costs : []), [costs]);
+
+  // Refresco calendario (solo toggles)
+  const onCalendarChange = useCallback(() => setRefreshCal((f) => !f), []);
+
+  // Updates (para finanzas)
+  const handleClassesUpdate = useCallback((cls) => {
+    setClasses(Array.isArray(cls) ? cls : []);
+    setFinanceRefresh((f) => f + 1);
+  }, []);
+
+  const handlePaymentsUpdate = useCallback((p) => {
+    setPayments(Array.isArray(p) ? p : []);
+    setFinanceRefresh((f) => f + 1);
+  }, []);
+
+  const handleRentalsUpdate = useCallback((r) => {
+    setRentals(Array.isArray(r) ? r : []);
+    setFinanceRefresh((f) => f + 1);
+  }, []);
+
+  const handleCostsUpdate = useCallback((c) => {
+    setCosts(Array.isArray(c) ? c : []);
+  }, []);
+
+  // ✅ Carga inicial 1 vez (evita loops / crash)
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      try {
+        const [t, s, st, c, r, m, co] = await Promise.all([
+          api.get("/teachers"),
+          api.get("/spaces"),
+          api.get("/students"),
+          api.get("/classes"),
+          api.get("/rentals"),
+          api.get("/modalities"),
+          api.get("/costs"),
+        ]);
+
+        if (!alive) return;
+
+        setTeachers(Array.isArray(t.data) ? t.data : []);
+        setSpaces(Array.isArray(s.data) ? s.data : []);
+        setStudents(Array.isArray(st.data) ? st.data : []);
+        setClasses(Array.isArray(c.data) ? c.data : []);
+        setRentals(Array.isArray(r.data) ? r.data : []);
+        setModalities(Array.isArray(m.data) ? m.data : []);
+        setCosts(Array.isArray(co.data) ? co.data : []);
+      } catch (e) {
+        console.error("Error carga inicial:", e);
+        toast.error("Error cargando datos iniciales");
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // ✅ Calendar silent 1 vez
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      try {
+        const token = await getCalendarAccessToken({ interactiveFallback: false });
+        if (!alive) return;
+        if (token) setCalendarToken(token);
+      } catch {
+        // normal: si no hay sesión previa, no pasa nada
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const sharedProps = {
+    teachers: teachersArr,
+    spaces: spacesArr,
+    students: studentsArr,
+    classes: classesArr,
+    rentals: rentalsArr,
+    modalities: modalitiesArr,
+    payments: paymentsArr,
+    costs: costsArr,
+
+    setTeachers,
+    setSpaces,
+    setStudents,
+    setClasses,
+    setRentals,
+    setModalities,
+    setPayments,
+    setCosts,
+
+    financeRefresh,
     calendarToken,
     setCalendarToken,
     refreshCal,
     onCalendarChange,
-    onClassesUpdate,
-    onPaymentsUpdate,
-    onRentalsUpdate,
-    onCostsUpdate,
-    financeRefresh,
-    setStudents,
-    setTeachers,
-    setModalities,
-    setSpaces,
-  } = props;
 
-  const [qaOpen, setQaOpen] = useState(false);
-  const [tabIndex, setTabIndex] = useState(0);
+    onClassesUpdate: handleClassesUpdate,
+    onPaymentsUpdate: handlePaymentsUpdate,
+    onRentalsUpdate: handleRentalsUpdate,
+    onCostsUpdate: handleCostsUpdate,
+  };
 
   return (
-    <Box>
-      {/* AppBar con logo */}
-      <AppBar position="fixed" elevation={1}>
-        <Toolbar sx={{ gap: 2 }}>
-          <Box
-            component="img"
-            src={LogoCasaLuarma}
-            alt="Casa Luarma"
-            sx={{ height: 34, width: "auto" }}
-          />
-          <Typography variant="h6" sx={{ fontWeight: 800 }}>
-            Admin Dashboard
-          </Typography>
-        </Toolbar>
-      </AppBar>
-
-      {/* Espaciador para que el AppBar NO tape lo de abajo */}
-      <Toolbar />
-
-      {/* Contenido con padding bottom para que el FAB no tape */}
-      <Box sx={{ p: 3, pb: 10 }}>
-        {calendarToken ? (
-          <CalendarView accessToken={calendarToken} refresh={refreshCal} />
-        ) : (
-          <Typography sx={{ mb: 2, color: "text.secondary" }}>
-            Calendar no conectado (opcional).
-          </Typography>
-        )}
-
-        <Tabs
-          value={tabIndex}
-          onChange={(_, v) => setTabIndex(v)}
-          sx={{ mb: 2 }}
-        >
-          <Tab label="Matrícula" />
-          <Tab label="Alquileres" />
-          <Tab label="Finanzas" />
-        </Tabs>
-
-        {tabIndex === 0 && (
-          <Box sx={{ pt: 2 }}>
-            <StudentsManager onStudentsUpdate={setStudents} />
-            <ClassesManager
-              teachers={teachers}
-              spaces={spaces}
-              modalities={modalities}
-              calendarToken={calendarToken}
-              setCalendarToken={setCalendarToken}
-              onClassesUpdate={onClassesUpdate}
-              refreshCalendar={onCalendarChange}
-            />
-            <ModalitiesManager onModalitiesUpdate={setModalities} />
-            <TeacherManager onTeachersUpdate={setTeachers} />
-            <PaymentManager
-              classesList={classes}
-              students={students}
-              onPaymentsUpdate={onPaymentsUpdate}
-            />
-          </Box>
-        )}
-
-        {tabIndex === 1 && (
-          <Box sx={{ pt: 2 }}>
-            <RentalManager
-              spaces={spaces}
-              calendarToken={calendarToken}
-              setCalendarToken={setCalendarToken}
-              onRentalsUpdate={onRentalsUpdate}
-              onEventSynced={onCalendarChange}
-            />
-            <SpacesManager onSpacesUpdate={setSpaces} />
-          </Box>
-        )}
-
-        {tabIndex === 2 && (
-          <Box sx={{ pt: 2 }}>
-            <FinancialSummary
-              month={new Date().getMonth() + 1}
-              year={new Date().getFullYear()}
-              refresh={financeRefresh}
-            />
-            <Divider sx={{ my: 2 }} />
-            <TeacherPayouts />
-            <CostsManager onCostsUpdate={onCostsUpdate} />
-          </Box>
-        )}
-      </Box>
-
-      {/* Quick actions */}
-      <Fab
-        color="primary"
-        onClick={() => setQaOpen(true)}
-        sx={{ position: "fixed", bottom: 16, right: 16 }}
-      >
-        <AddIcon />
-      </Fab>
-
-      <QuickActionDialog
-        open={qaOpen}
-        onClose={() => setQaOpen(false)}
-        spaces={spaces}
-        classesList={classes}
-        students={students}
-        teachers={teachers}
-        modalities={modalities}
-        calendarToken={calendarToken}
-        setCalendarToken={setCalendarToken}
-        onStudentsUpdate={setStudents}
-        onRentalsUpdate={onRentalsUpdate}
-        onPaymentsUpdate={onPaymentsUpdate}
-        onClassesUpdate={onClassesUpdate}
-        onTeachersUpdate={setTeachers}
-      />
+    <Box sx={{ minHeight: "100vh" }}>
+      {isMobile ? (
+        <AdminDashboardMobile {...sharedProps} />
+      ) : (
+        <AdminDashboardDesktop {...sharedProps} />
+      )}
     </Box>
   );
 }
