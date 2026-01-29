@@ -1,25 +1,17 @@
 // src/components/AdminDashboard.js
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-  Box,
-  Typography,
-  Button,
-  Divider,
-  Fab,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Grid,
-  Card,
-  CardContent,
-  useMediaQuery,
-  useTheme,
-} from '@mui/material';
+import { Box, useMediaQuery, useTheme } from '@mui/material';
+import { toast } from 'react-toastify';
 
-import AddIcon from '@mui/icons-material/Add';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import api from '../services/api';
 
-import QuickActionDialog from './QuickActionDialog';
+// Layouts
+import AdminDashboardDesktopWithSidebar from './AdminDashboardDesktopWithSidebar';
+import AdminDashboardMobileWithFooter from './AdminDashboardMobileWithFooter';
+
+// UI + secciones
+import OverviewPanel from './OverviewPanel';
+import CalendarView from './CalendarView';
 
 import StudentsManager from './StudentsManager';
 import ClassesManager from './ClassesManager';
@@ -34,36 +26,38 @@ import FinancialSummary from './FinancialSummary';
 import TeacherPayouts from './TeacherPayouts';
 import CostsManager from './CostsManager';
 
-import CalendarView from './CalendarView';
+// Quick actions (opcional)
+import QuickActionDialog from './QuickActionDialog';
+import { Fab } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 
-import AdminDashboardDesktopWithSidebar from './AdminDashboardDesktopWithSidebar';
-import AdminDashboardMobileWithFooter from './AdminDashboardMobile';
-
-import api from '../services/api';
-import { toast } from 'react-toastify';
-
+// Calendar auth
 import { getCalendarAccessToken, clearCalendarToken } from '../services/calendarAuth';
 
 export default function AdminDashboard() {
   const theme = useTheme();
-  // Tablet como desktop ✅
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
-  // —————————————— Estado global ——————————————
+  // Secciones: 0 Overview, 1 Matrícula, 2 Alquileres, 3 Finanzas
+  const [sectionIndex, setSectionIndex] = useState(0);
+
+  // Data state
   const [teachers, setTeachers] = useState([]);
   const [spaces, setSpaces] = useState([]);
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
   const [rentals, setRentals] = useState([]);
   const [modalities, setModalities] = useState([]);
-  const [payments, setPayments] = useState([]); // ✅ se carga ahora
+  const [payments, setPayments] = useState([]);
   const [costs, setCosts] = useState([]);
   const [financeRefresh, setFinanceRefresh] = useState(0);
 
+  // Calendar
   const [calendarToken, setCalendarToken] = useState(null);
   const [refreshCal, setRefreshCal] = useState(false);
+  const onCalendarChange = useCallback(() => setRefreshCal(f => !f), []);
 
-  // —————————————— SAFE arrays ——————————————
+  // SAFE arrays
   const teachersArr = useMemo(() => (Array.isArray(teachers) ? teachers : []), [teachers]);
   const spacesArr = useMemo(() => (Array.isArray(spaces) ? spaces : []), [spaces]);
   const studentsArr = useMemo(() => (Array.isArray(students) ? students : []), [students]);
@@ -73,65 +67,57 @@ export default function AdminDashboard() {
   const paymentsArr = useMemo(() => (Array.isArray(payments) ? payments : []), [payments]);
   const costsArr = useMemo(() => (Array.isArray(costs) ? costs : []), [costs]);
 
-  // —————————————— Callbacks estables ——————————————
+  // Update callbacks
   const handleClassesUpdate = useCallback((cls) => {
     setClasses(Array.isArray(cls) ? cls : []);
-    setFinanceRefresh((f) => f + 1);
+    setFinanceRefresh(f => f + 1);
   }, []);
-
   const handlePaymentsUpdate = useCallback((p) => {
     setPayments(Array.isArray(p) ? p : []);
-    setFinanceRefresh((f) => f + 1);
+    setFinanceRefresh(f => f + 1);
   }, []);
-
   const handleRentalsUpdate = useCallback((r) => {
     setRentals(Array.isArray(r) ? r : []);
-    setFinanceRefresh((f) => f + 1);
+    setFinanceRefresh(f => f + 1);
   }, []);
-
   const handleCostsUpdate = useCallback((c) => {
     setCosts(Array.isArray(c) ? c : []);
+    setFinanceRefresh(f => f + 1);
   }, []);
 
-  const onCalendarChange = useCallback(() => setRefreshCal((f) => !f), []);
-
-  // —————————————— Cargar datos maestros ——————————————
+  // Cargar datos maestros (solo 1 vez)
   useEffect(() => {
-    api.get('/teachers')
-      .then((r) => setTeachers(Array.isArray(r.data) ? r.data : []))
-      .catch(() => toast.error('Error cargando profesores'));
+    (async () => {
+      try {
+        const [
+          t, sp, st, cl, rn, md, py, cs
+        ] = await Promise.all([
+          api.get('/teachers'),
+          api.get('/spaces'),
+          api.get('/students'),
+          api.get('/classes'),
+          api.get('/rentals'),
+          api.get('/modalities'),
+          api.get('/payments'),
+          api.get('/costs'),
+        ]);
 
-    api.get('/spaces')
-      .then((r) => setSpaces(Array.isArray(r.data) ? r.data : []))
-      .catch(() => toast.error('Error cargando espacios'));
-
-    api.get('/students')
-      .then((r) => setStudents(Array.isArray(r.data) ? r.data : []))
-      .catch(() => toast.error('Error cargando estudiantes'));
-
-    api.get('/classes')
-      .then((r) => setClasses(Array.isArray(r.data) ? r.data : []))
-      .catch(() => toast.error('Error cargando clases'));
-
-    api.get('/rentals')
-      .then((r) => setRentals(Array.isArray(r.data) ? r.data : []))
-      .catch(() => toast.error('Error cargando alquileres'));
-
-    api.get('/modalities')
-      .then((r) => setModalities(Array.isArray(r.data) ? r.data : []))
-      .catch(() => toast.error('Error cargando modalidades'));
-
-    // ✅ nuevo: payments (para el overview)
-    api.get('/payments')
-      .then((r) => setPayments(Array.isArray(r.data) ? r.data : []))
-      .catch(() => toast.error('Error cargando pagos'));
-
-    api.get('/costs')
-      .then((r) => setCosts(Array.isArray(r.data) ? r.data : []))
-      .catch(() => toast.error('Error cargando costos'));
+        setTeachers(Array.isArray(t.data) ? t.data : []);
+        setSpaces(Array.isArray(sp.data) ? sp.data : []);
+        setStudents(Array.isArray(st.data) ? st.data : []);
+        setClasses(Array.isArray(cl.data) ? cl.data : []);
+        setRentals(Array.isArray(rn.data) ? rn.data : []);
+        setModalities(Array.isArray(md.data) ? md.data : []);
+        setPayments(Array.isArray(py.data) ? py.data : []);
+        setCosts(Array.isArray(cs.data) ? cs.data : []);
+      } catch (e) {
+        console.error(e);
+        toast.error('Error cargando datos del dashboard');
+      }
+    })();
   }, []);
 
-  // ✅ Intento silencioso de Calendar al entrar (sin popup)
+  // Calendar token silent al entrar
   useEffect(() => {
     (async () => {
       try {
@@ -140,147 +126,174 @@ export default function AdminDashboard() {
           setCalendarToken(token);
           onCalendarChange();
         }
-      } catch {
+      } catch (e) {
         // normal
       }
     })();
   }, [onCalendarChange]);
 
-  const handleRequestCalendarAccess = useCallback(async () => {
+  // Botón para conectar/renovar calendar
+  const handleRequestCalendarAccess = async () => {
     try {
       const token = await getCalendarAccessToken({ interactiveFallback: true });
       setCalendarToken(token);
       toast.success('Conectado a Google Calendar');
       onCalendarChange();
-    } catch {
+    } catch (e) {
+      console.error(e);
       toast.error('Error conectando Google Calendar');
       clearCalendarToken();
       setCalendarToken(null);
     }
-  }, [onCalendarChange]);
+  };
 
-  const handleDisconnectCalendar = useCallback(() => {
-    clearCalendarToken();
-    setCalendarToken(null);
-    toast.info('Calendar desconectado');
-    onCalendarChange();
-  }, [onCalendarChange]);
-
-  // —————————————— Navegación (sidebar / footer) ——————————————
-  const [tabIndex, setTabIndex] = useState(0);
-
-  // —————————————— Quick Action Dialog (solo se abre desde sidebar o móvil) ——————————————
+  // Quick actions (opcional)
   const [qaOpen, setQaOpen] = useState(false);
 
-  // ✅ Logo en /public/images/
-  const logoSrc = '/images/casaluarma-logo.png'; // ajustá al nombre exacto
+  // Logo (vos lo tenés en public/images/)
+  const logoSrc = '/images/casaluarma-logo.png';
 
-  // —————————————— Overview calculations ——————————————
-  const now = new Date();
-  const nowMonth = now.getMonth();
-  const nowYear = now.getFullYear();
+  // Contenido por sección
+  const renderSection = () => {
+    switch (sectionIndex) {
+      case 0:
+        return (
+          <OverviewPanel
+            students={studentsArr}
+            teachers={teachersArr}
+            classes={classesArr}
+            rentals={rentalsArr}
+            payments={paymentsArr}
+            costs={costsArr}
+          />
+        );
 
-  const totalCostsThisMonth = useMemo(() => {
-    return costsArr.reduce((sum, c) => {
-      const amount = Number(c.amount || 0);
+      case 1:
+        return (
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+              gap: 2,
+              alignItems: 'start'
+            }}
+          >
+            <StudentsManager onStudentsUpdate={setStudents} />
+            <ClassesManager
+              teachers={teachersArr}
+              spaces={spacesArr}
+              modalities={modalitiesArr}
+              calendarToken={calendarToken}
+              setCalendarToken={setCalendarToken}
+              onClassesUpdate={handleClassesUpdate}
+              refreshCalendar={onCalendarChange}
+            />
+            <ModalitiesManager onModalitiesUpdate={setModalities} />
+            <TeacherManager onTeachersUpdate={setTeachers} />
 
-      // fixed: lo contamos siempre como mensual
-      if (c.type === 'fixed') return sum + amount;
+            {/* Pagos ocupa todo el ancho */}
+            <Box sx={{ gridColumn: { xs: 'auto', md: '1 / -1' } }}>
+              <PaymentManager
+                classesList={classesArr}
+                students={studentsArr}
+                modalities={modalitiesArr}
+                onPaymentsUpdate={handlePaymentsUpdate}
+              />
+            </Box>
+          </Box>
+        );
 
-      // variable: solo si cae en el mes actual
-      if (c.type === 'variable' && c.dateIncurred) {
-        const d = new Date(c.dateIncurred);
-        if (d.getMonth() === nowMonth && d.getFullYear() === nowYear) return sum + amount;
-      }
-      return sum;
-    }, 0);
-  }, [costsArr, nowMonth, nowYear]);
+      case 2:
+        return (
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+              gap: 2,
+              alignItems: 'start'
+            }}
+          >
+            <RentalManager
+              spaces={spacesArr}
+              calendarToken={calendarToken}
+              setCalendarToken={setCalendarToken}
+              onRentalsUpdate={handleRentalsUpdate}
+              onEventSynced={onCalendarChange}
+            />
+            <SpacesManager onSpacesUpdate={setSpaces} />
+          </Box>
+        );
 
-  const totalPaymentsThisMonth = useMemo(() => {
-    // si tu payment tiene otra estructura, lo ajustamos.
-    // aquí asumo: { amount, date } o { amount, createdAt }
-    return paymentsArr.reduce((sum, p) => {
-      const amount = Number(p.amount || p.total || 0);
-      const dRaw = p.date || p.createdAt || p.paidAt;
-      if (!dRaw) return sum;
-      const d = new Date(dRaw);
-      if (d.getMonth() === nowMonth && d.getFullYear() === nowYear) return sum + amount;
-      return sum;
-    }, 0);
-  }, [paymentsArr, nowMonth, nowYear]);
+      case 3:
+        return (
+          <Box sx={{ display: 'grid', gap: 2 }}>
+            <FinancialSummary
+              month={new Date().getMonth() + 1}
+              year={new Date().getFullYear()}
+              refresh={financeRefresh}
+            />
+
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+                gap: 2,
+                alignItems: 'start'
+              }}
+            >
+              <TeacherPayouts />
+              <CostsManager onCostsUpdate={handleCostsUpdate} />
+            </Box>
+          </Box>
+        );
+
+      default:
+        return null;
+    }
+  };
 
   const content = (
-    <Box sx={{ p: isDesktop ? 0 : 2 }}>
-      {/* ✅ OVERVIEW */}
-      <Typography variant="h4" fontWeight={900} sx={{ mb: 1 }}>
-        Overview
-      </Typography>
+    <Box sx={{ display: 'grid', gap: 2 }}>
+      {/* ✅ Calendario SIEMPRE visible */}
+      <CalendarView accessToken={calendarToken} refresh={refreshCal} />
 
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard title="Estudiantes" value={studentsArr.length} />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard title="Profesores" value={teachersArr.length} />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard title="Clases activas" value={classesArr.length} />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard title="Alquileres" value={rentalsArr.length} />
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <StatCardMoney title="Pagos mes actual" value={totalPaymentsThisMonth} />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <StatCardMoney title="Costos mes actual" value={totalCostsThisMonth} />
-        </Grid>
-      </Grid>
-
-      {/* Calendar en acordeón */}
-      <Accordion sx={{ mb: 2 }}>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography fontWeight={800}>Google Calendar</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          {calendarToken ? (
-            <>
-              <CalendarView accessToken={calendarToken} refresh={refreshCal} />
-              <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
-                <Button variant="contained" onClick={handleRequestCalendarAccess}>
-                  Renovar / Reconectar
-                </Button>
-                <Button variant="outlined" onClick={handleDisconnectCalendar}>
-                  Desconectar
-                </Button>
-              </Box>
-            </>
-          ) : (
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Typography sx={{ flex: 1 }}>
-                Calendar no conectado (opcional). Si lo conectás, se sincronizan clases y alquileres.
-              </Typography>
-              <Button variant="contained" onClick={handleRequestCalendarAccess}>
-                Conectar
-              </Button>
-            </Box>
-          )}
-        </AccordionDetails>
-      </Accordion>
-
-      {/* ✅ Desktop: NO botón/FAB de Acción rápida aquí (ya está en sidebar) */}
-      {/* ✅ Mobile: mantenemos FAB (porque NO hay sidebar) */}
-      {!isDesktop && (
-        <Fab
-          color="primary"
-          onClick={() => setQaOpen(true)}
-          sx={{ position: 'fixed', bottom: 88, right: 16, zIndex: 1300 }}
-          aria-label="Acción rápida"
-        >
-          <AddIcon />
-        </Fab>
+      {/* Botón conectar calendar (si no token) */}
+      {!calendarToken && (
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <button
+            onClick={handleRequestCalendarAccess}
+            style={{
+              padding: '10px 14px',
+              borderRadius: 10,
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            Conectar Google Calendar
+          </button>
+        </Box>
       )}
+
+      {renderSection()}
+    </Box>
+  );
+
+  return isDesktop ? (
+    <AdminDashboardDesktopWithSidebar
+      logoSrc={logoSrc}
+      tabIndex={sectionIndex}
+      setTabIndex={setSectionIndex}
+    >
+      {content}
+
+      {/* Quick action opcional (desktop también lo podés usar) */}
+      <Fab
+        color="primary"
+        onClick={() => setQaOpen(true)}
+        sx={{ position: 'fixed', bottom: 16, right: 16 }}
+      >
+        <AddIcon />
+      </Fab>
 
       <QuickActionDialog
         open={qaOpen}
@@ -298,191 +311,40 @@ export default function AdminDashboard() {
         onClassesUpdate={handleClassesUpdate}
         onTeachersUpdate={setTeachers}
       />
-
-      {/* ===== MATRÍCULA ===== */}
-      <TabPanel value={tabIndex} index={0}>
-        {isDesktop ? (
-          <>
-            {/* ✅ 2 columnas SOLO para: estudiantes / clases / modalidades / profesores */}
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <StudentsManager onStudentsUpdate={setStudents} />
-                <ClassesManager
-                  teachers={teachersArr}
-                  spaces={spacesArr}
-                  modalities={modalitiesArr}
-                  calendarToken={calendarToken}
-                  setCalendarToken={setCalendarToken}
-                  onClassesUpdate={handleClassesUpdate}
-                  refreshCalendar={onCalendarChange}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <ModalitiesManager onModalitiesUpdate={setModalities} />
-                <TeacherManager onTeachersUpdate={setTeachers} />
-              </Grid>
-            </Grid>
-
-            {/* ✅ este se queda full width */}
-            <Box sx={{ mt: 2 }}>
-              <PaymentManager
-                classesList={classesArr}
-                students={studentsArr}
-                modalities={modalitiesArr}
-                onPaymentsUpdate={handlePaymentsUpdate}
-              />
-            </Box>
-          </>
-        ) : (
-          <>
-            <StudentsManager onStudentsUpdate={setStudents} />
-            <ClassesManager
-              teachers={teachersArr}
-              spaces={spacesArr}
-              modalities={modalitiesArr}
-              calendarToken={calendarToken}
-              setCalendarToken={setCalendarToken}
-              onClassesUpdate={handleClassesUpdate}
-              refreshCalendar={onCalendarChange}
-            />
-            <ModalitiesManager onModalitiesUpdate={setModalities} />
-            <TeacherManager onTeachersUpdate={setTeachers} />
-            <PaymentManager
-              classesList={classesArr}
-              students={studentsArr}
-              onPaymentsUpdate={handlePaymentsUpdate}
-            />
-          </>
-        )}
-      </TabPanel>
-
-      {/* ===== ALQUILERES ===== */}
-      <TabPanel value={tabIndex} index={1}>
-        {isDesktop ? (
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
-              <RentalManager
-                spaces={spacesArr}
-                calendarToken={calendarToken}
-                setCalendarToken={setCalendarToken}
-                onRentalsUpdate={handleRentalsUpdate}
-                onEventSynced={onCalendarChange}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <SpacesManager onSpacesUpdate={setSpaces} />
-            </Grid>
-          </Grid>
-        ) : (
-          <>
-            <RentalManager
-              spaces={spacesArr}
-              calendarToken={calendarToken}
-              setCalendarToken={setCalendarToken}
-              onRentalsUpdate={handleRentalsUpdate}
-              onEventSynced={onCalendarChange}
-            />
-            <SpacesManager onSpacesUpdate={setSpaces} />
-          </>
-        )}
-      </TabPanel>
-
-      {/* ===== FINANZAS ===== */}
-      <TabPanel value={tabIndex} index={2}>
-        <FinancialSummary
-          month={new Date().getMonth() + 1}
-          year={new Date().getFullYear()}
-          refresh={financeRefresh}
-        />
-
-        <Divider sx={{ my: 2 }} />
-
-        {isDesktop ? (
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
-              <TeacherPayouts />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <CostsManager onCostsUpdate={handleCostsUpdate} />
-            </Grid>
-          </Grid>
-        ) : (
-          <>
-            <TeacherPayouts />
-            <CostsManager onCostsUpdate={handleCostsUpdate} />
-          </>
-        )}
-      </TabPanel>
-    </Box>
-  );
-
-  // ✅ Desktop: sidebar controla secciones → SIN Tabs arriba
-  if (isDesktop) {
-    return (
-      <AdminDashboardDesktopWithSidebar
-        logoSrc={logoSrc}
-        tabIndex={tabIndex}
-        setTabIndex={setTabIndex}
-        onQuickAction={() => setQaOpen(true)} // ✅ solo aquí (sidebar)
-        contentMaxWidth={1400}
-      >
-        {content}
-      </AdminDashboardDesktopWithSidebar>
-    );
-  }
-
-  // ✅ Mobile: footer sticky controla secciones
-  return (
+    </AdminDashboardDesktopWithSidebar>
+  ) : (
     <AdminDashboardMobileWithFooter
       logoSrc={logoSrc}
-      tabIndex={tabIndex}
-      setTabIndex={setTabIndex}
+      tabIndex={sectionIndex}
+      setTabIndex={setSectionIndex}
     >
       {content}
+
+      {/* Quick action móvil */}
+      <Fab
+        color="primary"
+        onClick={() => setQaOpen(true)}
+        sx={{ position: 'fixed', bottom: 86, right: 16 }}
+      >
+        <AddIcon />
+      </Fab>
+
+      <QuickActionDialog
+        open={qaOpen}
+        onClose={() => setQaOpen(false)}
+        spaces={spacesArr}
+        classesList={classesArr}
+        students={studentsArr}
+        teachers={teachersArr}
+        modalities={modalitiesArr}
+        calendarToken={calendarToken}
+        setCalendarToken={setCalendarToken}
+        onStudentsUpdate={setStudents}
+        onRentalsUpdate={handleRentalsUpdate}
+        onPaymentsUpdate={handlePaymentsUpdate}
+        onClassesUpdate={handleClassesUpdate}
+        onTeachersUpdate={setTeachers}
+      />
     </AdminDashboardMobileWithFooter>
-  );
-}
-
-/** =======================
- *  UI Helpers
- *  ======================= */
-function StatCard({ title, value }) {
-  return (
-    <Card sx={{ borderRadius: 3 }}>
-      <CardContent>
-        <Typography variant="body2" color="text.secondary" fontWeight={700}>
-          {title}
-        </Typography>
-        <Typography variant="h4" fontWeight={900} sx={{ mt: 0.5 }}>
-          {value}
-        </Typography>
-      </CardContent>
-    </Card>
-  );
-}
-
-function StatCardMoney({ title, value }) {
-  const amount = Number(value || 0);
-  return (
-    <Card sx={{ borderRadius: 3 }}>
-      <CardContent>
-        <Typography variant="body2" color="text.secondary" fontWeight={700}>
-          {title}
-        </Typography>
-        <Typography variant="h5" fontWeight={900} sx={{ mt: 0.5 }}>
-          ₡{amount.toLocaleString()}
-        </Typography>
-      </CardContent>
-    </Card>
-  );
-}
-
-// Helper TabPanel
-function TabPanel({ children, value, index, ...other }) {
-  return (
-    <div role="tabpanel" hidden={value !== index} {...other}>
-      {value === index && <Box sx={{ pt: 1 }}>{children}</Box>}
-    </div>
   );
 }
