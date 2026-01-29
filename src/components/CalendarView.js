@@ -1,210 +1,158 @@
 // src/components/CalendarView.js
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Box, Typography } from '@mui/material';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Typography, Accordion, AccordionSummary, AccordionDetails, Box } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { toast } from 'react-toastify';
 
 import { listUpcomingEvents } from '../services/calendarService';
 import { getCalendarAccessToken, clearCalendarToken } from '../services/calendarAuth';
 
-// ✅ Si usás react-big-calendar, descomentá estas líneas:
- import { Calendar as BigCalendar, momentLocalizer } from 'react-big-calendar';
- import moment from 'moment';
+// ✅ si ya lo usabas antes (eventStyleGetter)
+import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
- const localizer = momentLocalizer(moment);
 
-function toNiceDate(ev) {
-  const dt = ev?.start?.dateTime || ev?.start?.date;
-  if (!dt) return 'Sin fecha';
-  try {
-    const d = new Date(dt);
-    if (Number.isNaN(d.getTime())) return dt;
-    return d.toLocaleString();
-  } catch {
-    return dt;
-  }
-}
+import format from 'date-fns/format';
+import parse from 'date-fns/parse';
+import startOfWeek from 'date-fns/startOfWeek';
+import getDay from 'date-fns/getDay';
+import es from 'date-fns/locale/es';
 
-function toDateRange(ev) {
-  // Google Calendar: start/end puede ser dateTime o date
-  const s = ev?.start?.dateTime || ev?.start?.date;
-  const e = ev?.end?.dateTime || ev?.end?.date;
+const locales = { es };
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek: () => startOfWeek(new Date(), { locale: es }),
+  getDay,
+  locales,
+});
 
-  const start = s ? new Date(s) : null;
-  const end = e ? new Date(e) : null;
-
-  // Si end no viene, al menos 1h
-  if (start && (!end || Number.isNaN(end.getTime()))) {
-    return { start, end: new Date(start.getTime() + 60 * 60 * 1000) };
-  }
-
-  return { start, end };
+function toCalendarEvent(ev) {
+  const start = ev.start?.dateTime ? new Date(ev.start.dateTime) : new Date(ev.start?.date);
+  const end = ev.end?.dateTime ? new Date(ev.end.dateTime) : new Date(ev.end?.date);
+  return {
+    id: ev.id,
+    title: ev.summary || '(Sin título)',
+    start,
+    end,
+    allDay: Boolean(ev.start?.date),
+    _raw: ev,
+  };
 }
 
 export default function CalendarView({ accessToken, refresh }) {
-  const [events, setEvents] = useState([]);
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const eventsArray = useMemo(() => (Array.isArray(events) ? events : []), [events]);
+  const events = useMemo(() => items.map(toCalendarEvent), [items]);
 
-  // ✅ eventStyleGetter (para react-big-calendar)
-  // OJO: Google Calendar trae `colorId` como string (ej: "1", "2"...)
-  const eventStyleGetter = useCallback((event) => {
-    const colorId = event?.colorId?.toString?.() || event?.resource?.colorId?.toString?.();
-
-    // Si no hay colorId, estilo neutro
-    if (!colorId) {
-      return {
-        style: {
-          borderRadius: '10px',
-          padding: '2px 6px',
-        },
-      };
-    }
-
-    // Paleta simple (podés ajustar)
-    const palette = {
-      '1': '#5484ed',
-      '2': '#7ae7bf',
-      '3': '#dbadff',
-      '4': '#ff887c',
-      '5': '#fbd75b',
-      '6': '#ffb878',
-      '7': '#46d6db',
-      '8': '#e1e1e1',
-      '9': '#51b749',
-      '10': '#dc2127',
-      '11': '#8e24aa',
-    };
-
-    const bg = palette[colorId] || '#5484ed';
-
+  // ✅ eventStyleGetter (lo pediste)
+  const eventStyleGetter = (event) => {
+    // si el evento tiene colorId, podrías mapearlo, pero lo dejamos simple y limpio
+    const isAllDay = event.allDay;
     return {
       style: {
-        backgroundColor: bg,
-        borderRadius: '10px',
-        padding: '2px 6px',
-        color: '#111',
+        borderRadius: 8,
         border: 'none',
+        padding: '2px 6px',
+        fontWeight: 600,
+        opacity: isAllDay ? 0.9 : 1,
       },
     };
-  }, []);
+  };
 
   useEffect(() => {
     let alive = true;
 
-    const run = async () => {
+    (async () => {
       setLoading(true);
       try {
-        const tokenToUse =
-          accessToken || (await getCalendarAccessToken({ interactiveFallback: false }));
-
+        const tokenToUse = accessToken || (await getCalendarAccessToken({ interactiveFallback: false }));
         if (!tokenToUse) {
-          if (alive) setEvents([]);
+          if (alive) setItems([]);
           return;
         }
 
-        const data = await listUpcomingEvents(tokenToUse, {
-          timeMin: new Date().toISOString(),
-          maxResults: 10,
-        });
-
+        // Traemos más de 10 para que el calendario tenga contenido
+        const data = await listUpcomingEvents(tokenToUse, { maxResults: 80 });
         if (!alive) return;
-
-        const items = Array.isArray(data?.items) ? data.items : [];
-        setEvents(items);
+        setItems(Array.isArray(data?.items) ? data.items : []);
       } catch (e) {
-        const is401 =
-          e?.status === 401 ||
-          e?.code === 'AUTH_401' ||
-          e?.message?.includes?.('401');
-
-        if (is401) {
+        if (e?.status === 401 || e?.code === 'AUTH_401') {
           clearCalendarToken();
           try {
             const newToken = await getCalendarAccessToken({ interactiveFallback: true });
-
-            const data2 = await listUpcomingEvents(newToken, {
-              timeMin: new Date().toISOString(),
-              maxResults: 10,
-            });
-
+            const data2 = await listUpcomingEvents(newToken, { maxResults: 80 });
             if (!alive) return;
-
-            const items2 = Array.isArray(data2?.items) ? data2.items : [];
-            setEvents(items2);
-            toast.info('Calendar reconectado');
+            setItems(Array.isArray(data2?.items) ? data2.items : []);
+            toast.success('Calendar reconectado');
             return;
           } catch (e2) {
-            console.error('No se pudo reconectar Calendar:', e2);
+            console.error(e2);
             toast.error('No se pudo reconectar Calendar');
           }
         } else {
-          console.error('Error obteniendo eventos del calendario:', e);
+          console.error(e);
           toast.error('Error obteniendo eventos del calendario');
         }
-
-        if (alive) setEvents([]);
+        if (alive) setItems([]);
       } finally {
         if (alive) setLoading(false);
       }
-    };
+    })();
 
-    run();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [accessToken, refresh]);
 
-  if (loading) return <Typography>Cargando calendario…</Typography>;
-
-  // ✅ Si querés usar react-big-calendar:
-   const bigCalendarEvents = eventsArray
-     .map((ev) => {
-       const { start, end } = toDateRange(ev);
-       if (!start || Number.isNaN(start.getTime())) return null;
-       return {
-         id: ev.id,
-        title: ev.summary || 'Sin título',
-        start,
-         end: end && !Number.isNaN(end.getTime()) ? end : new Date(start.getTime() + 60 * 60 * 1000),
-               resource: ev, // opcional: guardar todo el evento
-       };
-     })
-     .filter(Boolean);
-
   return (
-    <Box sx={{ mb: 2 }}>
-      <Typography variant="h6">Próximos eventos</Typography>
+    <Box>
+      <Typography variant="h6" sx={{ mb: 1 }}>
+        Calendario
+      </Typography>
 
-      {/* ✅ Render lista (como ya lo tenías) */}
-      {eventsArray.length === 0 ? (
-        <Typography>No hay eventos (o Calendar no está conectado).</Typography>
+      {loading ? (
+        <Typography>Cargando calendario…</Typography>
       ) : (
-        <Box component="ul" sx={{ m: 0, pl: 2 }}>
-          {eventsArray.map((ev) => (
-            <Box component="li" key={ev.id} sx={{ mb: 0.5 }}>
-              <Typography variant="body2">
-                <strong>{ev.summary || 'Sin título'}</strong> — {toNiceDate(ev)}
-              </Typography>
-            </Box>
-          ))}
+        <Box sx={{ borderRadius: 2, overflow: 'hidden' }}>
+          <Calendar
+            localizer={localizer}
+            events={events}
+            startAccessor="start"
+            endAccessor="end"
+            style={{ height: 380 }}
+            views={['month', 'week', 'day', 'agenda']}
+            messages={{
+              next: 'Sig',
+              previous: 'Ant',
+              today: 'Hoy',
+              month: 'Mes',
+              week: 'Semana',
+              day: 'Día',
+              agenda: 'Agenda',
+            }}
+            eventPropGetter={eventStyleGetter}
+          />
         </Box>
       )}
 
-      {/* ✅ Si usás react-big-calendar, descomentá esto: */}
-     
-      <Box sx={{ mt: 2, height: 420 }}>
-        <BigCalendar
-          localizer={localizer}
-          events={bigCalendarEvents}
-          startAccessor="start"
-          endAccessor="end"
-          eventPropGetter={eventStyleGetter} // 👈 aquí va
-          views={['month', 'week', 'day', 'agenda']}
-          defaultView="agenda"
-        />
-      </Box>
-   
+      {/* ✅ Lista colapsable */}
+      <Accordion sx={{ mt: 1 }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography>Próximos eventos</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          {events.length === 0 ? (
+            <Typography>No hay eventos (o Calendar no está conectado).</Typography>
+          ) : (
+            <Box component="ul" sx={{ m: 0, pl: 2 }}>
+              {events.slice(0, 15).map(ev => (
+                <li key={ev.id}>
+                  <strong>{ev.title}</strong> — {ev.start?.toLocaleString?.() || 'Sin fecha'}
+                </li>
+              ))}
+            </Box>
+          )}
+        </AccordionDetails>
+      </Accordion>
     </Box>
   );
 }
