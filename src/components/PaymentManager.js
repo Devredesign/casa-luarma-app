@@ -42,7 +42,6 @@ const PaymentManager = ({ classesList, students, modalities, onPaymentsUpdate })
   const studentsArray = useMemo(() => (Array.isArray(students) ? students : []), [students]);
   const modalitiesArray = useMemo(() => (Array.isArray(modalities) ? modalities : []), [modalities]);
 
-  // Fetch payments
   const fetchPayments = useCallback(async () => {
     try {
       const res = await api.get('/payments');
@@ -59,16 +58,18 @@ const PaymentManager = ({ classesList, students, modalities, onPaymentsUpdate })
     fetchPayments();
   }, [fetchPayments]);
 
-  // Add payment (✅ ahora incluye modalityId, y NO manda amount: backend lo calcula)
+  // ✅ Add payment: ahora recibe modalityId y amount calculado en frontend
+  // (si luego lo movés a backend, lo cambiamos)
   const addPayment = async (data) => {
     try {
       const payload = {
         classId: data.classId,
         studentId: data.studentId,
-        modalityId: data.modalityId,
+        modalityId: data.modalityId, // ✅ NUEVO
+        amount: Number(data.amount),
         method: data.method,
         paymentDate: data.date,
-        sessions: Number(data.sessions || 1)
+        sessions: Number(data.sessions)
       };
 
       const res = await api.post('/payments', payload);
@@ -84,7 +85,6 @@ const PaymentManager = ({ classesList, students, modalities, onPaymentsUpdate })
     }
   };
 
-  // Delete payment
   const deletePayment = async (id) => {
     try {
       await api.delete(`/payments/${id}`);
@@ -98,7 +98,6 @@ const PaymentManager = ({ classesList, students, modalities, onPaymentsUpdate })
     }
   };
 
-  // Mark as paid
   const markAsPaid = async (id) => {
     try {
       const res = await api.patch(`/payments/${id}`, { status: 'paid' });
@@ -112,7 +111,6 @@ const PaymentManager = ({ classesList, students, modalities, onPaymentsUpdate })
     }
   };
 
-  // Filters
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
@@ -122,7 +120,6 @@ const PaymentManager = ({ classesList, students, modalities, onPaymentsUpdate })
     setFilters({ month: '', year: '', professor: '', student: '', status: '', modalityId: '' });
   };
 
-  // Filtered list
   const filteredPayments = useMemo(() => {
     return paymentsArray.filter(p => {
       const date = new Date(p.paymentDate);
@@ -139,12 +136,10 @@ const PaymentManager = ({ classesList, students, modalities, onPaymentsUpdate })
       if (filters.student) ok = ok && stu._id === filters.student;
       if (filters.status) ok = ok && p.status === filters.status;
       if (filters.modalityId) ok = ok && String(p.modalityId) === String(filters.modalityId);
-
       return ok;
     });
   }, [paymentsArray, classesArray, studentsArray, filters]);
 
-  // Filter options
   const months = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
   const years = useMemo(() => {
     const ys = Array.from(
@@ -154,20 +149,12 @@ const PaymentManager = ({ classesList, students, modalities, onPaymentsUpdate })
           .filter(y => Number.isFinite(y))
       )
     ).sort((a, b) => b - a);
-
-    // si aún no hay pagos, igual mostrás el año actual
     if (ys.length === 0) ys.push(new Date().getFullYear());
     return ys;
   }, [paymentsArray]);
 
   const professors = useMemo(() => {
-    return Array.from(
-      new Set(
-        classesArray
-          .map(c => c.professor)
-          .filter(Boolean)
-      )
-    ).sort();
+    return Array.from(new Set(classesArray.map(c => c.professor).filter(Boolean))).sort();
   }, [classesArray]);
 
   const modalityNameById = useCallback((id) => {
@@ -184,7 +171,6 @@ const PaymentManager = ({ classesList, students, modalities, onPaymentsUpdate })
     <div>
       <Typography variant="h4" sx={{ mt: 3 }}>Pagos</Typography>
 
-      {/* Registrar Pago */}
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography>Registrar Pago</Typography>
@@ -193,33 +179,24 @@ const PaymentManager = ({ classesList, students, modalities, onPaymentsUpdate })
           <PaymentForm
             classesList={classesArray}
             students={studentsArray}
-            modalities={modalitiesArray}
+            modalities={modalitiesArray}   // ✅ CLAVE
             onSubmit={addPayment}
           />
         </AccordionDetails>
       </Accordion>
 
-      {/* Listado filtrado */}
       <Accordion defaultExpanded>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography>Listado de Pagos</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          {/* Filtros */}
           <Grid container spacing={2} sx={{ mb: 2 }}>
             <Grid item xs={6} sm={2}>
               <FormControl fullWidth>
                 <InputLabel>Mes</InputLabel>
-                <Select
-                  name="month"
-                  value={filters.month}
-                  onChange={handleFilterChange}
-                  label="Mes"
-                >
+                <Select name="month" value={filters.month} onChange={handleFilterChange} label="Mes">
                   <MenuItem value=""><em>Todos</em></MenuItem>
-                  {months.map(m => (
-                    <MenuItem key={m} value={m}>{m}</MenuItem>
-                  ))}
+                  {months.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
@@ -227,16 +204,9 @@ const PaymentManager = ({ classesList, students, modalities, onPaymentsUpdate })
             <Grid item xs={6} sm={2}>
               <FormControl fullWidth>
                 <InputLabel>Año</InputLabel>
-                <Select
-                  name="year"
-                  value={filters.year}
-                  onChange={handleFilterChange}
-                  label="Año"
-                >
+                <Select name="year" value={filters.year} onChange={handleFilterChange} label="Año">
                   <MenuItem value=""><em>Todos</em></MenuItem>
-                  {years.map(y => (
-                    <MenuItem key={y} value={y}>{y}</MenuItem>
-                  ))}
+                  {years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
@@ -244,16 +214,9 @@ const PaymentManager = ({ classesList, students, modalities, onPaymentsUpdate })
             <Grid item xs={6} sm={2}>
               <FormControl fullWidth>
                 <InputLabel>Profesor</InputLabel>
-                <Select
-                  name="professor"
-                  value={filters.professor}
-                  onChange={handleFilterChange}
-                  label="Profesor"
-                >
+                <Select name="professor" value={filters.professor} onChange={handleFilterChange} label="Profesor">
                   <MenuItem value=""><em>Todos</em></MenuItem>
-                  {professors.map(pf => (
-                    <MenuItem key={pf} value={pf}>{pf}</MenuItem>
-                  ))}
+                  {professors.map(pf => <MenuItem key={pf} value={pf}>{pf}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
@@ -261,16 +224,9 @@ const PaymentManager = ({ classesList, students, modalities, onPaymentsUpdate })
             <Grid item xs={6} sm={2}>
               <FormControl fullWidth>
                 <InputLabel>Estudiante</InputLabel>
-                <Select
-                  name="student"
-                  value={filters.student}
-                  onChange={handleFilterChange}
-                  label="Estudiante"
-                >
+                <Select name="student" value={filters.student} onChange={handleFilterChange} label="Estudiante">
                   <MenuItem value=""><em>Todos</em></MenuItem>
-                  {studentsArray.map(stu => (
-                    <MenuItem key={stu._id} value={stu._id}>{stu.name}</MenuItem>
-                  ))}
+                  {studentsArray.map(stu => <MenuItem key={stu._id} value={stu._id}>{stu.name}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
@@ -278,16 +234,9 @@ const PaymentManager = ({ classesList, students, modalities, onPaymentsUpdate })
             <Grid item xs={6} sm={2}>
               <FormControl fullWidth>
                 <InputLabel>Modalidad</InputLabel>
-                <Select
-                  name="modalityId"
-                  value={filters.modalityId}
-                  onChange={handleFilterChange}
-                  label="Modalidad"
-                >
+                <Select name="modalityId" value={filters.modalityId} onChange={handleFilterChange} label="Modalidad">
                   <MenuItem value=""><em>Todas</em></MenuItem>
-                  {modalitiesArray.map(m => (
-                    <MenuItem key={m._id} value={m._id}>{m.name}</MenuItem>
-                  ))}
+                  {modalitiesArray.map(m => <MenuItem key={m._id} value={m._id}>{m.name}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
@@ -295,12 +244,7 @@ const PaymentManager = ({ classesList, students, modalities, onPaymentsUpdate })
             <Grid item xs={6} sm={2}>
               <FormControl fullWidth>
                 <InputLabel>Status</InputLabel>
-                <Select
-                  name="status"
-                  value={filters.status}
-                  onChange={handleFilterChange}
-                  label="Status"
-                >
+                <Select name="status" value={filters.status} onChange={handleFilterChange} label="Status">
                   <MenuItem value=""><em>Todos</em></MenuItem>
                   <MenuItem value="pending">Pendiente</MenuItem>
                   <MenuItem value="paid">Pagado</MenuItem>
@@ -313,10 +257,7 @@ const PaymentManager = ({ classesList, students, modalities, onPaymentsUpdate })
                 <Button size="small" variant="outlined" onClick={resetFilters}>
                   Limpiar filtros
                 </Button>
-                <Chip
-                  label={`${filteredPayments.length} pago(s)`}
-                  variant="outlined"
-                />
+                <Chip label={`${filteredPayments.length} pago(s)`} variant="outlined" />
               </Stack>
             </Grid>
           </Grid>
@@ -328,21 +269,18 @@ const PaymentManager = ({ classesList, students, modalities, onPaymentsUpdate })
               {filteredPayments.map(p => {
                 const stu = studentsArray.find(s => String(s._id) === String(p.studentId)) || {};
                 const amount = Number(p.amount || 0);
-                const sessions = Number(p.sessions || 1);
 
                 return (
                   <ListItem key={p._id} divider sx={{ alignItems: 'flex-start' }}>
                     <ListItemText
                       primary={`${stu.name || 'Estudiante'} — ₡${amount.toLocaleString()}`}
-                      secondary={
-                        [
-                          `Clase: ${classTitleById(p.classId)}`,
-                          `Modalidad (pago): ${modalityNameById(p.modalityId)}`,
-                          `Sesiones: ${sessions}`,
-                          `Fecha: ${new Date(p.paymentDate).toLocaleDateString()}`,
-                          `Método: ${p.method || '-'}`
-                        ].join(' | ')
-                      }
+                      secondary={[
+                        `Clase: ${classTitleById(p.classId)}`,
+                        `Modalidad (pago): ${modalityNameById(p.modalityId)}`,
+                        `Sesiones: ${p.sessions ?? '-'}`,
+                        `Fecha: ${new Date(p.paymentDate).toLocaleDateString()}`,
+                        `Método: ${p.method || '-'}`
+                      ].join(' | ')}
                     />
 
                     {p.status === 'pending' ? (
