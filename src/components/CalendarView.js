@@ -1,19 +1,11 @@
 // src/components/CalendarView.js
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
+  Box,
+  Typography,
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Box,
-  Typography,
-  CircularProgress,
-  List,
-  ListItem,
-  ListItemText,
-  Grid,
-  Card,
-  CardContent,
-  Chip,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { toast } from 'react-toastify';
@@ -21,92 +13,90 @@ import { toast } from 'react-toastify';
 import { listUpcomingEvents } from '../services/calendarService';
 import { getCalendarAccessToken, clearCalendarToken } from '../services/calendarAuth';
 
-function isAuth401(err) {
-  const msg = String(err?.message || err || '');
-  return (
-    err?.status === 401 ||
-    err?.code === 401 ||
-    err?.response?.status === 401 ||
-    msg.includes(' 401') ||
-    msg.includes('401') ||
-    msg.toLowerCase().includes('unauthenticated') ||
-    msg.toLowerCase().includes('invalid credentials')
-  );
+// ✅ Si usás react-big-calendar, asegurate de tener estas líneas activas:
+// import { Calendar as BigCalendar, momentLocalizer } from 'react-big-calendar';
+// import moment from 'moment';
+// import 'react-big-calendar/lib/css/react-big-calendar.css';
+// const localizer = momentLocalizer(moment);
+
+function toNiceDate(ev) {
+  const dt = ev?.start?.dateTime || ev?.start?.date;
+  if (!dt) return 'Sin fecha';
+  try {
+    const d = new Date(dt);
+    if (Number.isNaN(d.getTime())) return dt;
+    return d.toLocaleString();
+  } catch {
+    return dt;
+  }
 }
 
-function getEventStartDate(ev) {
-  const raw = ev?.start?.dateTime || ev?.start?.date;
-  if (!raw) return null;
-  // dateTime viene con hora; date viene solo con YYYY-MM-DD
-  // Si viene solo fecha, lo tratamos como local a medianoche
-  return new Date(raw);
-}
+function toDateRange(ev) {
+  const s = ev?.start?.dateTime || ev?.start?.date;
+  const e = ev?.end?.dateTime || ev?.end?.date;
 
-function formatDateTimeLocal(d) {
-  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return 'Sin fecha';
-  return new Intl.DateTimeFormat('es-CR', {
-    weekday: 'short',
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(d);
-}
+  const start = s ? new Date(s) : null;
+  const end = e ? new Date(e) : null;
 
-function formatDateOnly(d) {
-  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return 'Sin fecha';
-  return new Intl.DateTimeFormat('es-CR', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: '2-digit',
-  }).format(d);
-}
+  if (start && (!end || Number.isNaN(end.getTime()))) {
+    return { start, end: new Date(start.getTime() + 60 * 60 * 1000) };
+  }
 
-function groupByDay(events) {
-  const map = new Map();
-  events.forEach((ev) => {
-    const start = getEventStartDate(ev);
-    if (!start) return;
-    const key = new Date(start.getFullYear(), start.getMonth(), start.getDate()).toISOString();
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(ev);
-  });
-
-  // ordenar días asc
-  const days = Array.from(map.keys()).sort((a, b) => new Date(a) - new Date(b));
-
-  // ordenar eventos por hora dentro del día
-  const result = days.map((k) => {
-    const list = map.get(k) || [];
-    list.sort((a, b) => {
-      const da = getEventStartDate(a)?.getTime() || 0;
-      const db = getEventStartDate(b)?.getTime() || 0;
-      return da - db;
-    });
-    return { dayKey: k, dayDate: new Date(k), items: list };
-  });
-
-  return result;
+  return { start, end };
 }
 
 export default function CalendarView({ accessToken, refresh }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const safeEvents = Array.isArray(events) ? events : [];
+  const eventsArray = useMemo(() => (Array.isArray(events) ? events : []), [events]);
 
-  const daysGrouped = useMemo(() => groupByDay(safeEvents), [safeEvents]);
+  // ✅ eventStyleGetter (para react-big-calendar)
+  const eventStyleGetter = useCallback((event) => {
+    const colorId = event?.colorId?.toString?.() || event?.resource?.colorId?.toString?.();
+
+    if (!colorId) {
+      return {
+        style: {
+          borderRadius: '10px',
+          padding: '2px 6px',
+        },
+      };
+    }
+
+    const palette = {
+      '1': '#5484ed',
+      '2': '#7ae7bf',
+      '3': '#dbadff',
+      '4': '#ff887c',
+      '5': '#fbd75b',
+      '6': '#ffb878',
+      '7': '#46d6db',
+      '8': '#e1e1e1',
+      '9': '#51b749',
+      '10': '#dc2127',
+      '11': '#8e24aa',
+    };
+
+    const bg = palette[colorId] || '#5484ed';
+
+    return {
+      style: {
+        backgroundColor: bg,
+        borderRadius: '10px',
+        padding: '2px 6px',
+        color: '#111',
+        border: 'none',
+      },
+    };
+  }, []);
 
   useEffect(() => {
     let alive = true;
 
-    (async () => {
+    const run = async () => {
       setLoading(true);
-
       try {
-        // 1) Usar el token que venga por props, si no intentar silent (sin popup)
         const tokenToUse =
           accessToken || (await getCalendarAccessToken({ interactiveFallback: false }));
 
@@ -115,123 +105,114 @@ export default function CalendarView({ accessToken, refresh }) {
           return;
         }
 
-        const data = await listUpcomingEvents(tokenToUse);
+        const data = await listUpcomingEvents(tokenToUse, {
+          timeMin: new Date().toISOString(),
+          maxResults: 10,
+        });
+
         if (!alive) return;
 
         const items = Array.isArray(data?.items) ? data.items : [];
         setEvents(items);
-      } catch (err) {
-        // 401 => token inválido/expirado: limpiamos storage y dejamos UI sin eventos
-        if (isAuth401(err)) {
-          clearCalendarToken?.();
-          if (alive) setEvents([]);
-          toast.warning('Calendar desconectado (token expirado). Usá “Conectar” para reconectar.');
+      } catch (e) {
+        const is401 =
+          e?.status === 401 ||
+          e?.code === 'AUTH_401' ||
+          e?.message?.includes?.('401');
+
+        if (is401) {
+          clearCalendarToken();
+          try {
+            const newToken = await getCalendarAccessToken({ interactiveFallback: true });
+
+            const data2 = await listUpcomingEvents(newToken, {
+              timeMin: new Date().toISOString(),
+              maxResults: 10,
+            });
+
+            if (!alive) return;
+
+            const items2 = Array.isArray(data2?.items) ? data2.items : [];
+            setEvents(items2);
+            toast.info('Calendar reconectado');
+            return;
+          } catch (e2) {
+            console.error('No se pudo reconectar Calendar:', e2);
+            toast.error('No se pudo reconectar Calendar');
+          }
         } else {
-          console.error('Error obteniendo eventos del calendario:', err);
-          if (alive) setEvents([]);
+          console.error('Error obteniendo eventos del calendario:', e);
           toast.error('Error obteniendo eventos del calendario');
         }
+
+        if (alive) setEvents([]);
       } finally {
         if (alive) setLoading(false);
       }
-    })();
+    };
 
+    run();
     return () => {
       alive = false;
     };
   }, [accessToken, refresh]);
 
+  // ✅ Eventos para BigCalendar (igual que lo tenías)
+  const bigCalendarEvents = eventsArray
+    .map((ev) => {
+      const { start, end } = toDateRange(ev);
+      if (!start || Number.isNaN(start.getTime())) return null;
+      return {
+        id: ev.id,
+        title: ev.summary || 'Sin título',
+        start,
+        end: end && !Number.isNaN(end.getTime()) ? end : new Date(start.getTime() + 60 * 60 * 1000),
+        resource: ev,
+      };
+    })
+    .filter(Boolean);
+
   return (
     <Box sx={{ mb: 2 }}>
-      <Typography variant="h5" sx={{ mb: 1 }}>
-        Calendario
-      </Typography>
-
-      {/* ✅ Calendario SIEMPRE visible (Agenda por día) */}
-      {loading ? (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 2 }}>
-          <CircularProgress size={18} />
-          <Typography>Cargando calendario…</Typography>
-        </Box>
-      ) : daysGrouped.length === 0 ? (
-        <Typography sx={{ mb: 2 }}>
-          No hay eventos (o Calendar no está conectado).
-        </Typography>
-      ) : (
-        <Grid container spacing={2} sx={{ mb: 2 }}>
-          {daysGrouped.map(({ dayKey, dayDate, items }) => (
-            <Grid item xs={12} md={6} lg={4} key={dayKey}>
-              <Card variant="outlined">
-                <CardContent>
-                  <Typography fontWeight={700} sx={{ mb: 1 }}>
-                    {formatDateOnly(dayDate)}
-                  </Typography>
-
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    {items.map((ev) => {
-                      const start = getEventStartDate(ev);
-                      const labelTime =
-                        start && !Number.isNaN(start.getTime())
-                          ? new Intl.DateTimeFormat('es-CR', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            }).format(start)
-                          : '—';
-
-                      return (
-                        <Box
-                          key={ev.id}
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: 1,
-                          }}
-                        >
-                          <Typography sx={{ flex: 1, minWidth: 0 }} noWrap title={ev.summary || ''}>
-                            {ev.summary || 'Sin título'}
-                          </Typography>
-
-                          <Chip size="small" label={labelTime} />
-                        </Box>
-                      );
-                    })}
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      )}
-
-      {/* ✅ Lista de próximos eventos escondida en Accordion */}
-      <Accordion defaultExpanded={false}>
+      {/* ✅ Lista ahora en Accordion (se puede ocultar) */}
+      <Accordion defaultExpanded={false} sx={{ mb: 2 }}>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography>
-            Próximos eventos (lista) {safeEvents.length ? `— ${safeEvents.length}` : ''}
+          <Typography variant="h6">
+            Próximos eventos {eventsArray.length ? `(${eventsArray.length})` : ''}
           </Typography>
         </AccordionSummary>
 
         <AccordionDetails>
-          {safeEvents.length === 0 ? (
-            <Typography>No hay eventos para mostrar.</Typography>
+          {loading ? (
+            <Typography>Cargando eventos…</Typography>
+          ) : eventsArray.length === 0 ? (
+            <Typography>No hay eventos (o Calendar no está conectado).</Typography>
           ) : (
-            <List dense>
-              {safeEvents.map((ev) => {
-                const start = getEventStartDate(ev);
-                return (
-                  <ListItem key={ev.id} divider>
-                    <ListItemText
-                      primary={ev.summary || 'Sin título'}
-                      secondary={formatDateTimeLocal(start)}
-                    />
-                  </ListItem>
-                );
-              })}
-            </List>
+            <Box component="ul" sx={{ m: 0, pl: 2 }}>
+              {eventsArray.map((ev) => (
+                <Box component="li" key={ev.id} sx={{ mb: 0.5 }}>
+                  <Typography variant="body2">
+                    <strong>{ev.summary || 'Sin título'}</strong> — {toNiceDate(ev)}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
           )}
         </AccordionDetails>
       </Accordion>
+
+      {/* ✅ Calendario queda como estaba */}
+      <Box sx={{ mt: 2, height: 420 }}>
+        <BigCalendar
+          localizer={localizer}
+          events={bigCalendarEvents}
+          startAccessor="start"
+          endAccessor="end"
+          eventPropGetter={eventStyleGetter}
+          views={['month', 'week', 'day', 'agenda']}
+          defaultView="agenda"
+        />
+      </Box>
     </Box>
   );
 }
