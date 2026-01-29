@@ -1,44 +1,69 @@
 // src/components/PaymentForm.js
 import React, { useMemo, useState } from 'react';
-import { Box, TextField, Button, FormControl, InputLabel, Select, MenuItem, Typography } from '@mui/material';
+import {
+  Box,
+  TextField,
+  Button,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Typography
+} from '@mui/material';
 
 export default function PaymentForm({ classesList = [], students = [], modalities = [], onSubmit }) {
   const [form, setForm] = useState({
     classId: '',
-    studentId: '',
     modalityId: '',
+    studentId: '',
     date: '',
     method: '',
     sessions: 1
   });
 
-  const handleChange = e => {
+  const safeClasses = useMemo(() => (Array.isArray(classesList) ? classesList : []), [classesList]);
+  const safeStudents = useMemo(() => (Array.isArray(students) ? students : []), [students]);
+  const safeModalities = useMemo(() => (Array.isArray(modalities) ? modalities : []), [modalities]);
+
+  const selectedMod = useMemo(() => {
+    return safeModalities.find(m => String(m._id) === String(form.modalityId));
+  }, [safeModalities, form.modalityId]);
+
+  const previewAmount = useMemo(() => {
+    const price = Number(selectedMod?.price || 0);
+    const sessions = Number(form.sessions || 1);
+    return price * sessions;
+  }, [selectedMod, form.sessions]);
+
+  const handleChange = (e) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const selectedModality = useMemo(
-    () => modalities.find(m => m._id === form.modalityId),
-    [modalities, form.modalityId]
-  );
-
-  const sessionsNum = Math.max(1, Number(form.sessions || 1));
-  const previewAmount = (Number(selectedModality?.price || 0) * sessionsNum);
-
-  const handleSubmit = e => {
+  const handleSubmit = (e) => {
     e.preventDefault();
+
+    const price = Number(selectedMod?.price || 0);
+    const amount = price * Number(form.sessions || 1);
 
     onSubmit({
       classId: form.classId,
-      studentId: form.studentId,
       modalityId: form.modalityId,
+      studentId: form.studentId,
       date: form.date,
       method: form.method,
-      sessions: sessionsNum
-      // ✅ NO mandamos amount: backend lo calcula
+      sessions: Number(form.sessions || 1),
+      amount
     });
 
-    setForm({ classId:'', studentId:'', modalityId:'', date:'', method:'', sessions: 1 });
+    setForm({
+      classId: '',
+      modalityId: '',
+      studentId: '',
+      date: '',
+      method: '',
+      sessions: 1
+    });
   };
 
   return (
@@ -46,18 +71,30 @@ export default function PaymentForm({ classesList = [], students = [], modalitie
       <FormControl fullWidth required margin="normal">
         <InputLabel>Clase</InputLabel>
         <Select name="classId" value={form.classId} onChange={handleChange} label="Clase">
-          <MenuItem value=""><em>Seleccione clase</em></MenuItem>
-          {classesList.map(c => (
-            <MenuItem key={c._id} value={c._id}>{c.title}</MenuItem>
+          <MenuItem value="">
+            <em>Seleccione clase</em>
+          </MenuItem>
+          {safeClasses.map(c => (
+            <MenuItem key={c._id} value={c._id}>
+              {c.title}
+            </MenuItem>
           ))}
         </Select>
       </FormControl>
 
+      {/* ✅ Modalidad ahora se elige aquí */}
       <FormControl fullWidth required margin="normal">
-        <InputLabel>Modalidad (del pago)</InputLabel>
-        <Select name="modalityId" value={form.modalityId} onChange={handleChange} label="Modalidad (del pago)">
-          <MenuItem value=""><em>Seleccione modalidad</em></MenuItem>
-          {modalities.map(m => (
+        <InputLabel>Modalidad (para este pago)</InputLabel>
+        <Select
+          name="modalityId"
+          value={form.modalityId}
+          onChange={handleChange}
+          label="Modalidad (para este pago)"
+        >
+          <MenuItem value="">
+            <em>Seleccione modalidad</em>
+          </MenuItem>
+          {safeModalities.map(m => (
             <MenuItem key={m._id} value={m._id}>
               {m.name} — ₡{Number(m.price || 0).toLocaleString()}
             </MenuItem>
@@ -77,18 +114,16 @@ export default function PaymentForm({ classesList = [], students = [], modalitie
         InputProps={{ inputProps: { min: 1 } }}
       />
 
-      {form.modalityId && (
-        <Typography sx={{ mt: 1 }}>
-          Monto estimado: <b>₡{Number(previewAmount || 0).toLocaleString()}</b>
-        </Typography>
-      )}
-
       <FormControl fullWidth required margin="normal">
         <InputLabel>Estudiante</InputLabel>
         <Select name="studentId" value={form.studentId} onChange={handleChange} label="Estudiante">
-          <MenuItem value=""><em>Seleccione estudiante</em></MenuItem>
-          {students.map(s => (
-            <MenuItem key={s._id} value={s._id}>{s.name} ({s.cedula})</MenuItem>
+          <MenuItem value="">
+            <em>Seleccione estudiante</em>
+          </MenuItem>
+          {safeStudents.map(s => (
+            <MenuItem key={s._id} value={s._id}>
+              {s.name} {s.cedula ? `(${s.cedula})` : ''}
+            </MenuItem>
           ))}
         </Select>
       </FormControl>
@@ -110,8 +145,13 @@ export default function PaymentForm({ classesList = [], students = [], modalitie
         <Select name="method" value={form.method} onChange={handleChange} label="Método">
           <MenuItem value="Efectivo">Efectivo</MenuItem>
           <MenuItem value="SINPE Móvil">SINPE Móvil</MenuItem>
+          <MenuItem value="Transferencia">Transferencia</MenuItem>
         </Select>
       </FormControl>
+
+      <Typography sx={{ mt: 1, opacity: 0.8 }}>
+        Monto estimado: <b>₡{Number(previewAmount || 0).toLocaleString()}</b>
+      </Typography>
 
       <Button type="submit" variant="contained" sx={{ mt: 2 }}>
         Registrar Pago
