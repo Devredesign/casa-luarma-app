@@ -185,7 +185,6 @@ export default function ClassesManager({
             onSubmit={saveClass}
             teachers={teachersArray}
             spaces={spacesArray}
-            modalities={modalitiesArray}
           />
         </AccordionDetails>
       </Accordion>
