@@ -329,6 +329,7 @@ export default function AdminDashboard() {
               <PaymentManager
                 classesList={classesArr}
                 students={studentsArr}
+                modalities={modalitiesArr}
                 onPaymentsUpdate={handlePaymentsUpdate}
               />
             </Box>
