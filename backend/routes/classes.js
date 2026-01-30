@@ -40,7 +40,7 @@ router.post('/', async (req, res) => {
   } = req.body;
 
   // 2) Valida que la modalidad exista
-  let mod;
+/*let mod;
   try {
     mod = await Modality.findById(modality);
   } catch {
@@ -48,7 +48,7 @@ router.post('/', async (req, res) => {
   }
   if (!mod) {
     return res.status(400).json({ message: 'Modalidad no encontrada' });
-  }
+  }*/
 
   // 3) Crea el documento
   const newClass = new Class({
