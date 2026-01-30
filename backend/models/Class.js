@@ -3,8 +3,8 @@ const mongoose = require('mongoose');
 
 const classSchema = new mongoose.Schema({
   title:           { type: String, required: true },
-  modality:        { type: mongoose.Schema.Types.ObjectId, ref: 'Modality', required: true },
-  isRecurring: { type: Boolean, default: false },
+  modality:        { type: mongoose.Schema.Types.ObjectId, ref: 'Modality', default: null },
+  isRecurring:     { type: Boolean, default: false },
   professor:       { type: String, required: true },
   schedule:        { type: Date,   required: true },
   space:           { type: mongoose.Schema.Types.ObjectId, ref: 'Space', required: true },
