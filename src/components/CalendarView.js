@@ -14,10 +14,10 @@ import { listUpcomingEvents } from '../services/calendarService';
 import { getCalendarAccessToken, clearCalendarToken } from '../services/calendarAuth';
 
 // ✅ Si usás react-big-calendar, asegurate de tener estas líneas activas:
-// import { Calendar as BigCalendar, momentLocalizer } from 'react-big-calendar';
-// import moment from 'moment';
-// import 'react-big-calendar/lib/css/react-big-calendar.css';
-// const localizer = momentLocalizer(moment);
+ import { Calendar as BigCalendar, momentLocalizer } from 'react-big-calendar';
+ import moment from 'moment';
+ import 'react-big-calendar/lib/css/react-big-calendar.css';
+ const localizer = momentLocalizer(moment);
 
 function toNiceDate(ev) {
   const dt = ev?.start?.dateTime || ev?.start?.date;
