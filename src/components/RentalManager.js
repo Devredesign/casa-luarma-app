@@ -141,6 +141,19 @@ export default function RentalManager({
   const addRental = async (data) => {
     try {
       const payload = normalizeNumbers(data);
+
+// compat: enviar ambas llaves por si el backend espera otra
+payload.space = payload.space ?? payload.spaceId;
+payload.spaceId = payload.spaceId ?? payload.space;
+
+// fechas compat
+payload.startDateTime = payload.startDateTime ?? payload.start ?? payload.startDate;
+payload.endDateTime   = payload.endDateTime   ?? payload.end   ?? payload.endDate;
+
+// monto compat
+payload.amount = payload.amount ?? payload.price ?? payload.total;
+
+      
       const res = await api.post('/rentals', payload);
 
       const updated = [...rentalsArr, res.data];
