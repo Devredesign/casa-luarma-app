@@ -1,4 +1,3 @@
-// src/components/RentalForm.js
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
@@ -55,6 +54,35 @@ export default function RentalForm({
     }
   }, [initialData]);
 
+  // ✅ calcular monto en vivo
+  const selectedSpace = useMemo(
+    () => spacesArray.find(s => s._id === formData.space) || null,
+    [spacesArray, formData.space]
+  );
+
+  const hoursNum = useMemo(() => {
+    const n = Number(formData.hours);
+    return Number.isFinite(n) ? n : 0;
+  }, [formData.hours]);
+
+  const pricePerHour = useMemo(() => {
+    // Por si tu modelo usa otro nombre (price, hourlyRate, etc.)
+    const raw =
+      selectedSpace?.pricePerHour ??
+      selectedSpace?.pricePerhour ??
+      selectedSpace?.hourlyRate ??
+      selectedSpace?.price ??
+      0;
+
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : 0;
+  }, [selectedSpace]);
+
+  const computedAmount = useMemo(() => {
+    if (!pricePerHour || !hoursNum) return 0;
+    return Math.round(pricePerHour * hoursNum);
+  }, [pricePerHour, hoursNum]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -76,14 +104,33 @@ export default function RentalForm({
       return;
     }
 
-    const startISO = formData.startTime
-      ? new Date(formData.startTime).toISOString()
-      : null;
+    if (!formData.space) {
+      toast.error('Seleccioná un espacio');
+      return;
+    }
+
+    if (!hoursNum || hoursNum <= 0) {
+      toast.error('Horas debe ser mayor a 0');
+      return;
+    }
+
+    if (!formData.startTime) {
+      toast.error('Seleccioná fecha y hora de inicio');
+      return;
+    }
+
+    const startISO = new Date(formData.startTime).toISOString();
 
     const payload = {
-      ...formData,
-      hours: Number(formData.hours),
-      startTime: startISO
+      space: formData.space,
+      tenantName: formData.tenantName,
+      activityName: formData.activityName,
+      hours: hoursNum,
+      startTime: startISO,
+      isRecurring: formData.isRecurring,
+
+      // ✅ ENVIAMOS amount ya calculado
+      amount: computedAmount
     };
 
     await submitFn(payload);
@@ -155,7 +202,16 @@ export default function RentalForm({
         fullWidth
         required
         margin="normal"
-        inputProps={{ min: 1 }}
+        inputProps={{ min: 1, step: 0.5 }}
+      />
+
+      {/* ✅ Monto calculado visible */}
+      <TextField
+        label="Monto (calculado)"
+        value={`₡${Number(computedAmount || 0).toLocaleString()}`}
+        fullWidth
+        margin="normal"
+        InputProps={{ readOnly: true }}
       />
 
       <TextField
