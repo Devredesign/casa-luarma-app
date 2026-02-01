@@ -136,16 +136,13 @@ export default function RentalManager({
 
   const addRental = async (data) => {
     console.log('[RentalManager] addRental called with:', data);
-    toast.info('Enviando alquiler...', { autoClose: 900 });
 
     try {
       let payload = normalizeNumbers(data);
 
-      // ✅ compat: space
       payload.space = payload.space ?? payload.spaceId;
       payload.spaceId = payload.spaceId ?? payload.space;
 
-      // ✅ compat: fechas (tu form usa startTime)
       payload.startDateTime =
         payload.startDateTime ??
         payload.startTime ??
@@ -158,8 +155,8 @@ export default function RentalManager({
         payload.end ??
         payload.endDate;
 
-      // ✅ si no viene endDateTime, lo calculamos por hours
       const hours = Number(payload.hours);
+
       if (payload.startDateTime && !payload.endDateTime && Number.isFinite(hours) && hours > 0) {
         const start = new Date(payload.startDateTime);
         if (!Number.isNaN(start.getTime())) {
@@ -167,18 +164,15 @@ export default function RentalManager({
         }
       }
 
-      // ✅ amount compat: si no viene, lo calculamos por pricePerHour del space
-      if (payload.amount == null || payload.amount === '') {
-        const spaceObj = spacesArr.find(s => s._id === payload.space) || null;
-        const pph = Number(spaceObj?.pricePerHour ?? 0);
-        if (Number.isFinite(pph) && Number.isFinite(hours) && hours > 0) {
-          payload.amount = pph * hours;
-        }
-      } else {
-        payload.amount = payload.amount ?? payload.price ?? payload.total;
+      // ✅ si amount viene 0/undefined, recalcular SIEMPRE con pricePerHour
+      const spaceObj = spacesArr.find(s => s._id === payload.space) || null;
+      const pph = Number(spaceObj?.pricePerHour ?? spaceObj?.hourlyRate ?? 0);
+
+      const shouldRecalc = !Number.isFinite(Number(payload.amount)) || Number(payload.amount) <= 0;
+      if (shouldRecalc && Number.isFinite(pph) && pph > 0 && Number.isFinite(hours) && hours > 0) {
+        payload.amount = Math.round(pph * hours);
       }
 
-      // ✅ validación mínima para no mandar basura
       if (!payload.space) {
         toast.error('Seleccioná un espacio');
         return;
@@ -195,7 +189,6 @@ export default function RentalManager({
       onRentalsUpdate?.(updated);
       toast.success('Alquiler registrado');
 
-      // Calendar sync (best-effort)
       const startRaw =
         res.data?.startDateTime ||
         res.data?.startTime ||
@@ -232,7 +225,7 @@ export default function RentalManager({
               try {
                 await api.patch(`/rentals/${res.data._id}`, { eventId: ev.id });
               } catch {
-                // si no hay PATCH en rentals, no pasa nada
+                // ok
               }
             }
 
@@ -286,7 +279,6 @@ export default function RentalManager({
           <Typography>Registrar Alquiler</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          {/* ✅ FIX: tu form usa onAddRental */}
           <RentalForm
             spaces={spacesArr}
             quick={quick}
@@ -307,16 +299,9 @@ export default function RentalManager({
               <Grid item xs={6} sm={3}>
                 <FormControl fullWidth size="small">
                   <InputLabel>Mes</InputLabel>
-                  <Select
-                    name="month"
-                    value={filters.month}
-                    onChange={handleFilterChange}
-                    label="Mes"
-                  >
+                  <Select name="month" value={filters.month} onChange={handleFilterChange} label="Mes">
                     <MenuItem value=""><em>Todos</em></MenuItem>
-                    {months.map((m) => (
-                      <MenuItem key={m} value={m}>{m}</MenuItem>
-                    ))}
+                    {months.map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}
                   </Select>
                 </FormControl>
               </Grid>
@@ -324,24 +309,15 @@ export default function RentalManager({
               <Grid item xs={6} sm={3}>
                 <FormControl fullWidth size="small">
                   <InputLabel>Año</InputLabel>
-                  <Select
-                    name="year"
-                    value={filters.year}
-                    onChange={handleFilterChange}
-                    label="Año"
-                  >
+                  <Select name="year" value={filters.year} onChange={handleFilterChange} label="Año">
                     <MenuItem value=""><em>Todos</em></MenuItem>
-                    {years.map((y) => (
-                      <MenuItem key={y} value={y}>{y}</MenuItem>
-                    ))}
+                    {years.map((y) => <MenuItem key={y} value={y}>{y}</MenuItem>)}
                   </Select>
                 </FormControl>
               </Grid>
 
               <Grid item xs={12} sm={3} sx={{ display: 'flex', alignItems: 'center' }}>
-                <Button variant="outlined" onClick={clearFilters}>
-                  Limpiar filtros
-                </Button>
+                <Button variant="outlined" onClick={clearFilters}>Limpiar filtros</Button>
               </Grid>
             </Grid>
 
@@ -354,30 +330,35 @@ export default function RentalManager({
                   const dateLabel = d ? d.toLocaleString() : 'Sin fecha';
 
                   const spaceId = typeof r.space === 'object' ? r.space?._id : (r.space || r.spaceId);
+                  const spaceObj = spacesArr.find((s) => s._id === spaceId) || null;
+
                   const spaceName =
                     (typeof r.space === 'object' && r.space?.name) ||
-                    spacesArr.find((s) => s._id === spaceId)?.name ||
+                    spaceObj?.name ||
                     'Sin espacio';
 
-                  const amount = Number(r.amount ?? r.price ?? r.total ?? 0) || 0;
+                  // ✅ fallback: si amount viene 0/undefined, recalculamos en display
+                  const hours = Number(r.hours ?? 0);
+                  const pph = Number(spaceObj?.pricePerHour ?? spaceObj?.hourlyRate ?? 0);
+                  const computed = (Number.isFinite(hours) && Number.isFinite(pph)) ? (hours * pph) : 0;
+
+                  const rawAmount = r.amount ?? r.price ?? r.total;
+                  const amountNum = Number(rawAmount);
+                  const amount = (Number.isFinite(amountNum) && amountNum > 0) ? amountNum : computed;
 
                   return (
                     <ListItem
                       key={r._id}
                       divider
                       secondaryAction={
-                        <IconButton
-                          edge="end"
-                          aria-label="eliminar"
-                          onClick={() => deleteRental(r._id, r.eventId)}
-                        >
+                        <IconButton edge="end" aria-label="eliminar" onClick={() => deleteRental(r._id, r.eventId)}>
                           <DeleteIcon color="error" />
                         </IconButton>
                       }
                     >
                       <ListItemText
-                        primary={`${spaceName} — ₡${amount.toLocaleString()}`}
-                        secondary={`Fecha: ${dateLabel}`}
+                        primary={`${spaceName} — ₡${Number(amount || 0).toLocaleString()}`}
+                        secondary={`Fecha: ${dateLabel}${hours ? ` | Horas: ${hours}` : ''}`}
                       />
                     </ListItem>
                   );
