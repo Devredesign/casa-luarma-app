@@ -1,4 +1,3 @@
-// src/components/RentalManager.js
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import RentalForm from './RentalForm';
@@ -23,16 +22,15 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { toast } from 'react-toastify';
 
-// ✅ Si tu calendarService tiene create/delete, los usamos sin depender de exports “duros”
 import * as calendarService from '../services/calendarService';
 import { getCalendarAccessToken } from '../services/calendarAuth';
 
 function getRentalDate(r) {
-  // Intentamos varias llaves típicas sin romper
   const raw =
     r?.startDateTime ||
     r?.start ||
     r?.startDate ||
+    r?.startTime ||
     r?.date ||
     r?.rentalDate ||
     r?.createdAt;
@@ -43,7 +41,6 @@ function getRentalDate(r) {
 }
 
 function normalizeNumbers(payload) {
-  // Convierte números comunes si vienen como string
   const numericKeys = ['amount', 'price', 'total', 'deposit', 'hours'];
   const out = { ...payload };
 
@@ -122,7 +119,6 @@ export default function RentalManager({
     });
   }, [rentalsArr, filters]);
 
-  // ✅ token helper: intenta silent si no hay token (sin popup)
   const ensureCalendarToken = useCallback(async () => {
     if (calendarToken) return calendarToken;
 
@@ -139,21 +135,59 @@ export default function RentalManager({
   }, [calendarToken, setCalendarToken]);
 
   const addRental = async (data) => {
+    console.log('[RentalManager] addRental called with:', data);
+    toast.info('Enviando alquiler...', { autoClose: 900 });
+
     try {
-      const payload = normalizeNumbers(data);
+      let payload = normalizeNumbers(data);
 
-// compat: enviar ambas llaves por si el backend espera otra
-payload.space = payload.space ?? payload.spaceId;
-payload.spaceId = payload.spaceId ?? payload.space;
+      // ✅ compat: space
+      payload.space = payload.space ?? payload.spaceId;
+      payload.spaceId = payload.spaceId ?? payload.space;
 
-// fechas compat
-payload.startDateTime = payload.startDateTime ?? payload.start ?? payload.startDate;
-payload.endDateTime   = payload.endDateTime   ?? payload.end   ?? payload.endDate;
+      // ✅ compat: fechas (tu form usa startTime)
+      payload.startDateTime =
+        payload.startDateTime ??
+        payload.startTime ??
+        payload.start ??
+        payload.startDate;
 
-// monto compat
-payload.amount = payload.amount ?? payload.price ?? payload.total;
+      payload.endDateTime =
+        payload.endDateTime ??
+        payload.endTime ??
+        payload.end ??
+        payload.endDate;
 
-      
+      // ✅ si no viene endDateTime, lo calculamos por hours
+      const hours = Number(payload.hours);
+      if (payload.startDateTime && !payload.endDateTime && Number.isFinite(hours) && hours > 0) {
+        const start = new Date(payload.startDateTime);
+        if (!Number.isNaN(start.getTime())) {
+          payload.endDateTime = new Date(start.getTime() + hours * 60 * 60 * 1000).toISOString();
+        }
+      }
+
+      // ✅ amount compat: si no viene, lo calculamos por pricePerHour del space
+      if (payload.amount == null || payload.amount === '') {
+        const spaceObj = spacesArr.find(s => s._id === payload.space) || null;
+        const pph = Number(spaceObj?.pricePerHour ?? 0);
+        if (Number.isFinite(pph) && Number.isFinite(hours) && hours > 0) {
+          payload.amount = pph * hours;
+        }
+      } else {
+        payload.amount = payload.amount ?? payload.price ?? payload.total;
+      }
+
+      // ✅ validación mínima para no mandar basura
+      if (!payload.space) {
+        toast.error('Seleccioná un espacio');
+        return;
+      }
+      if (!payload.startDateTime) {
+        toast.error('Seleccioná fecha y hora de inicio');
+        return;
+      }
+
       const res = await api.post('/rentals', payload);
 
       const updated = [...rentalsArr, res.data];
@@ -161,10 +195,17 @@ payload.amount = payload.amount ?? payload.price ?? payload.total;
       onRentalsUpdate?.(updated);
       toast.success('Alquiler registrado');
 
-      // ✅ Calendar sync (best-effort, no bloquea el guardado)
-      // Solo si el backend no lo hace y si hay fechas
-      const startRaw = res.data?.startDateTime || res.data?.start || res.data?.startDate || payload?.startDateTime || payload?.start;
-      const endRaw = res.data?.endDateTime || res.data?.end || res.data?.endDate || payload?.endDateTime || payload?.end;
+      // Calendar sync (best-effort)
+      const startRaw =
+        res.data?.startDateTime ||
+        res.data?.startTime ||
+        res.data?.start ||
+        payload?.startDateTime;
+
+      const endRaw =
+        res.data?.endDateTime ||
+        res.data?.end ||
+        payload?.endDateTime;
 
       if (startRaw && calendarService?.createCalendarEvent) {
         const token = await ensureCalendarToken();
@@ -187,12 +228,11 @@ payload.amount = payload.amount ?? payload.price ?? payload.total;
 
             const ev = await calendarService.createCalendarEvent(token, eventData);
 
-            // Si tu backend guarda eventId, perfecto. Si no, esto lo “pega” con patch.
             if (ev?.id) {
               try {
                 await api.patch(`/rentals/${res.data._id}`, { eventId: ev.id });
               } catch {
-                // si no tenés PATCH en rentals, no pasa nada
+                // si no hay PATCH en rentals, no pasa nada
               }
             }
 
@@ -218,7 +258,6 @@ payload.amount = payload.amount ?? payload.price ?? payload.total;
 
       toast.success('Alquiler eliminado');
 
-      // ✅ borrar evento Calendar si existe
       if (eventId && calendarService?.deleteCalendarEvent) {
         const token = await ensureCalendarToken();
         if (token) {
@@ -242,25 +281,28 @@ payload.amount = payload.amount ?? payload.price ?? payload.total;
         Alquileres
       </Typography>
 
-      {/* Registrar alquiler */}
       <Accordion defaultExpanded={quick}>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography>Registrar Alquiler</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          {/* si tu RentalForm usa onSave, cambiá onSubmit por onSave */}
-          <RentalForm spaces={spacesArr} onSubmit={addRental} quick={quick} />
+          {/* ✅ FIX: tu form usa onAddRental */}
+          <RentalForm
+            spaces={spacesArr}
+            quick={quick}
+            onAddRental={addRental}
+            onSubmit={addRental}
+            onSave={addRental}
+          />
         </AccordionDetails>
       </Accordion>
 
-      {/* Listado + filtros (en quick lo escondemos para no saturar) */}
       {!quick && (
         <Accordion sx={{ mt: 1 }}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography>Listado de Alquileres</Typography>
           </AccordionSummary>
           <AccordionDetails>
-            {/* Filtros mes/año */}
             <Grid container spacing={2} sx={{ mb: 2 }}>
               <Grid item xs={6} sm={3}>
                 <FormControl fullWidth size="small">
@@ -317,8 +359,7 @@ payload.amount = payload.amount ?? payload.price ?? payload.total;
                     spacesArr.find((s) => s._id === spaceId)?.name ||
                     'Sin espacio';
 
-                  const amount =
-                    Number(r.amount ?? r.price ?? r.total ?? 0) || 0;
+                  const amount = Number(r.amount ?? r.price ?? r.total ?? 0) || 0;
 
                   return (
                     <ListItem
