@@ -12,8 +12,16 @@ import {
   FormControlLabel,
   Checkbox
 } from '@mui/material';
+import { toast } from 'react-toastify';
 
-export default function RentalForm({ onAddRental, initialData, spaces, quick }) {
+export default function RentalForm({
+  onAddRental,
+  onSubmit,
+  onSave,
+  initialData,
+  spaces,
+  quick
+}) {
   const [formData, setFormData] = useState({
     space: '',
     tenantName: '',
@@ -23,10 +31,8 @@ export default function RentalForm({ onAddRental, initialData, spaces, quick }) 
     isRecurring: false
   });
 
-  // ✅ SAFE array para evitar "map is not a function"
   const spacesArray = useMemo(() => (Array.isArray(spaces) ? spaces : []), [spaces]);
 
-  // Sincroniza initialData cuando cambia (modo edición)
   useEffect(() => {
     if (initialData) {
       setFormData({
@@ -38,7 +44,6 @@ export default function RentalForm({ onAddRental, initialData, spaces, quick }) 
         isRecurring: Boolean(initialData.isRecurring)
       });
     } else {
-      // si no hay initialData y el componente se reusa, mantené limpio
       setFormData({
         space: '',
         tenantName: '',
@@ -60,10 +65,17 @@ export default function RentalForm({ onAddRental, initialData, spaces, quick }) 
     setFormData(prev => ({ ...prev, [name]: checked }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Evitar Date inválida si startTime está vacío
+    const submitFn = onAddRental || onSubmit || onSave;
+
+    if (!submitFn) {
+      console.error('RentalForm: falta handler (onAddRental/onSubmit/onSave)');
+      toast.error('Error: el formulario no tiene handler de guardado');
+      return;
+    }
+
     const startISO = formData.startTime
       ? new Date(formData.startTime).toISOString()
       : null;
@@ -74,7 +86,7 @@ export default function RentalForm({ onAddRental, initialData, spaces, quick }) 
       startTime: startISO
     };
 
-    onAddRental?.(payload);
+    await submitFn(payload);
 
     if (!initialData) {
       setFormData({
@@ -143,6 +155,7 @@ export default function RentalForm({ onAddRental, initialData, spaces, quick }) 
         fullWidth
         required
         margin="normal"
+        inputProps={{ min: 1 }}
       />
 
       <TextField
