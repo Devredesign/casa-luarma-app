@@ -20,7 +20,6 @@ function isSameMonthYear(dateLike, month, year) {
   return (d.getMonth() + 1) === month && d.getFullYear() === year;
 }
 
-// ✅ Unifica el “campo fecha” de alquileres (por compat)
 function getRentalStart(r) {
   return (
     r?.startDateTime ||
@@ -33,10 +32,42 @@ function getRentalStart(r) {
   );
 }
 
-// ✅ Unifica el “monto” de alquileres (por compat)
-function getRentalAmount(r) {
-  const val = Number(r?.amount ?? r?.total ?? r?.price ?? r?.priceTotal ?? r?.totalAmount ?? 0);
-  return Number.isFinite(val) ? val : 0;
+function getRentalSpaceId(r) {
+  return typeof r?.space === 'object' ? (r?.space?._id || r?.space?.id) : (r?.space || r?.spaceId);
+}
+
+function getPricePerHourFromRentalOrSpaces(r, spacesArr) {
+  // 1) Si viene populate con pricePerHour:
+  const fromRental =
+    (typeof r?.space === 'object' && (r.space?.pricePerHour ?? r.space?.hourlyRate ?? r.space?.price)) ??
+    (r?.pricePerHour ?? r?.hourlyRate ?? r?.price) ??
+    null;
+
+  const n1 = Number(fromRental);
+  if (Number.isFinite(n1) && n1 > 0) return n1;
+
+  // 2) Buscar en spaces del dashboard
+  const spaceId = getRentalSpaceId(r);
+  const spaceObj = spacesArr.find((s) => s._id === spaceId) || null;
+
+  const n2 = Number(spaceObj?.pricePerHour ?? spaceObj?.hourlyRate ?? spaceObj?.price ?? 0);
+  return (Number.isFinite(n2) && n2 > 0) ? n2 : 0;
+}
+
+function getRentalAmountWithFallback(r, spacesArr) {
+  // si ya viene amount/total/price:
+  const raw = Number(r?.amount ?? r?.total ?? r?.price ?? r?.priceTotal ?? r?.totalAmount ?? 0);
+  if (Number.isFinite(raw) && raw > 0) return raw;
+
+  // fallback: hours * pricePerHour
+  const hours = Number(r?.hours ?? 0);
+  const pph = getPricePerHourFromRentalOrSpaces(r, spacesArr);
+
+  if (Number.isFinite(hours) && hours > 0 && Number.isFinite(pph) && pph > 0) {
+    return Math.round(hours * pph);
+  }
+
+  return 0;
 }
 
 export default function OverviewPanel({
@@ -46,6 +77,7 @@ export default function OverviewPanel({
   rentals = [],
   payments = [],
   costs = [],
+  spaces = [], // 👈 NUEVO
 }) {
   const now = new Date();
   const month = now.getMonth() + 1;
@@ -57,28 +89,25 @@ export default function OverviewPanel({
   const rentalsArr = Array.isArray(rentals) ? rentals : [];
   const paymentsArr = Array.isArray(payments) ? payments : [];
   const costsArr = Array.isArray(costs) ? costs : [];
+  const spacesArr = Array.isArray(spaces) ? spaces : [];
 
   const kpis = useMemo(() => {
-    // Ingresos clases: pagos del mes (paid o todos si no hay status)
     const incomeClasses = paymentsArr
       .filter((p) => isSameMonthYear(p.paymentDate || p.date || p.createdAt, month, year))
       .filter((p) => !p.status || p.status === 'paid')
       .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
-    // ✅ Ingresos alquileres: usa startDateTime/startTime/etc
+    // ✅ ahora sí: incluye startDateTime y recalcula monto si amount viene vacío/0
     const incomeRentals = rentalsArr
       .filter((r) => isSameMonthYear(getRentalStart(r), month, year))
-      .reduce((sum, r) => sum + getRentalAmount(r), 0);
+      .reduce((sum, r) => sum + getRentalAmountWithFallback(r, spacesArr), 0);
 
-    // Costos operativos: suma amount (o cost) del mes
     const totalCosts = costsArr
       .filter((c) => isSameMonthYear(c.date || c.costDate || c.createdAt, month, year))
       .reduce((sum, c) => sum + Number(c.amount ?? c.cost ?? 0), 0);
 
-    // Ganancia neta simple
     const net = (incomeClasses + incomeRentals) - totalCosts;
 
-    // Conteos
     const totalStudents = studentsArr.length;
     const totalTeachers = teachersArr.length;
     const totalClasses = classesArr.length;
@@ -97,7 +126,7 @@ export default function OverviewPanel({
       totalCosts,
       net,
     };
-  }, [studentsArr, teachersArr, classesArr, rentalsArr, paymentsArr, costsArr, month, year]);
+  }, [studentsArr, teachersArr, classesArr, rentalsArr, paymentsArr, costsArr, spacesArr, month, year]);
 
   const cards = [
     { label: 'Estudiantes', value: kpis.totalStudents, icon: <PeopleAltIcon /> },
