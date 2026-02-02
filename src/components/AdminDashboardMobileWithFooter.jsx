@@ -26,7 +26,7 @@ export default function AdminDashboardMobileWithFooter({
           position: 'sticky',
           top: 0,
           zIndex: 10,
-          backgroundColor: '#fff',
+          backgroundColor: '#1976d3',
           borderBottom: '1px solid rgba(0,0,0,0.08)',
         }}
       >
