@@ -67,6 +67,10 @@ export default function AdminDashboard() {
   const paymentsArr = useMemo(() => (Array.isArray(payments) ? payments : []), [payments]);
   const costsArr = useMemo(() => (Array.isArray(costs) ? costs : []), [costs]);
 
+  useEffect(() => {
+  console.log('costsArr[0]:', costsArr?.[0]);
+}, [costsArr]);
+  
   // Update callbacks
   const handleClassesUpdate = useCallback((cls) => {
     setClasses(Array.isArray(cls) ? cls : []);
