@@ -14,9 +14,29 @@ function money(n) {
 }
 
 function isSameMonthYear(dateLike, month, year) {
+  if (!dateLike) return false;
   const d = new Date(dateLike);
   if (Number.isNaN(d.getTime())) return false;
   return (d.getMonth() + 1) === month && d.getFullYear() === year;
+}
+
+// ✅ Unifica el “campo fecha” de alquileres (por compat)
+function getRentalStart(r) {
+  return (
+    r?.startDateTime ||
+    r?.startTime ||
+    r?.start ||
+    r?.startDate ||
+    r?.date ||
+    r?.rentalDate ||
+    r?.createdAt
+  );
+}
+
+// ✅ Unifica el “monto” de alquileres (por compat)
+function getRentalAmount(r) {
+  const val = Number(r?.amount ?? r?.total ?? r?.price ?? r?.priceTotal ?? r?.totalAmount ?? 0);
+  return Number.isFinite(val) ? val : 0;
 }
 
 export default function OverviewPanel({
@@ -41,22 +61,18 @@ export default function OverviewPanel({
   const kpis = useMemo(() => {
     // Ingresos clases: pagos del mes (paid o todos si no hay status)
     const incomeClasses = paymentsArr
-      .filter(p => isSameMonthYear(p.paymentDate, month, year))
-      .filter(p => !p.status || p.status === 'paid')
+      .filter((p) => isSameMonthYear(p.paymentDate || p.date || p.createdAt, month, year))
+      .filter((p) => !p.status || p.status === 'paid')
       .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
-    // Ingresos alquileres: intenta varios campos comunes (amount/total/price)
+    // ✅ Ingresos alquileres: usa startDateTime/startTime/etc
     const incomeRentals = rentalsArr
-      .filter(r => isSameMonthYear(r.startTime || r.date || r.createdAt, month, year))
-      .reduce((sum, r) => {
-        const val =
-          Number(r.amount ?? r.total ?? r.price ?? r.priceTotal ?? r.totalAmount ?? 0);
-        return sum + (Number.isFinite(val) ? val : 0);
-      }, 0);
+      .filter((r) => isSameMonthYear(getRentalStart(r), month, year))
+      .reduce((sum, r) => sum + getRentalAmount(r), 0);
 
     // Costos operativos: suma amount (o cost) del mes
     const totalCosts = costsArr
-      .filter(c => isSameMonthYear(c.date || c.costDate || c.createdAt, month, year))
+      .filter((c) => isSameMonthYear(c.date || c.costDate || c.createdAt, month, year))
       .reduce((sum, c) => sum + Number(c.amount ?? c.cost ?? 0), 0);
 
     // Ganancia neta simple
@@ -67,8 +83,8 @@ export default function OverviewPanel({
     const totalTeachers = teachersArr.length;
     const totalClasses = classesArr.length;
 
-    const rentalsThisMonth = rentalsArr.filter(r =>
-      isSameMonthYear(r.startTime || r.date || r.createdAt, month, year)
+    const rentalsThisMonth = rentalsArr.filter((r) =>
+      isSameMonthYear(getRentalStart(r), month, year)
     ).length;
 
     return {
@@ -94,7 +110,7 @@ export default function OverviewPanel({
     <Box sx={{ display: 'grid', gap: 2 }}>
       <Typography variant="h4">Overview</Typography>
       <Typography variant="body2" color="text.secondary">
-        Resumen rápido del mes actual ({month}/{year}). (Esto es “aprox” porque depende de los campos disponibles en tus modelos.)
+        Resumen rápido del mes actual ({month}/{year}).
       </Typography>
 
       <Grid container spacing={2}>
