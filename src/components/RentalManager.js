@@ -357,7 +357,7 @@ export default function RentalManager({
                       }
                     >
                       <ListItemText
-                        primary={`${spaceName} — ₡${Number(amount || 0).toLocaleString()}`}
+                        primary={`${activityName} — ${spaceName} — ₡${Number(amount || 0).toLocaleString()}`}
                         secondary={`Fecha: ${dateLabel}${hours ? ` | Horas: ${hours}` : ''}`}
                       />
                     </ListItem>
