@@ -165,6 +165,7 @@ export default function AdminDashboard() {
             rentals={rentalsArr}
             payments={paymentsArr}
             costs={costsArr}
+            spaces={spacesArr}  
           />
         );
 
@@ -231,6 +232,8 @@ export default function AdminDashboard() {
               month={new Date().getMonth() + 1}
               year={new Date().getFullYear()}
               refresh={financeRefresh}
+              rentals={rentalsArr} 
+              spaces={spacesArr}  
             />
 
             <Box
