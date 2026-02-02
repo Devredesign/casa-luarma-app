@@ -13,13 +13,51 @@ function money(n) {
   return `₡ ${v.toLocaleString()}`;
 }
 
+/**
+ * ✅ parse seguro:
+ * - Si viene "YYYY-MM-DD" lo interpreta como fecha LOCAL (evita shift por UTC)
+ * - Si viene ISO completo o timestamp, cae al Date normal
+ */
+function parseDateLike(value) {
+  if (!value) return null;
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value === 'number') {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  if (typeof value === 'string') {
+    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) {
+      const y = Number(m[1]);
+      const mo = Number(m[2]);
+      const day = Number(m[3]);
+      const d = new Date(y, mo - 1, day); // 👈 local
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  try {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
+  }
+}
+
 function isSameMonthYear(dateLike, month, year) {
-  if (!dateLike) return false;
-  const d = new Date(dateLike);
-  if (Number.isNaN(d.getTime())) return false;
+  const d = parseDateLike(dateLike);
+  if (!d) return false;
   return (d.getMonth() + 1) === month && d.getFullYear() === year;
 }
 
+// ✅ Unifica fecha alquileres
 function getRentalStart(r) {
   return (
     r?.startDateTime ||
@@ -32,12 +70,13 @@ function getRentalStart(r) {
   );
 }
 
+// ✅ Unifica spaceId de alquiler (por compat)
 function getRentalSpaceId(r) {
   return typeof r?.space === 'object' ? (r?.space?._id || r?.space?.id) : (r?.space || r?.spaceId);
 }
 
+// ✅ obtiene pph desde rental populate, o desde spaces del dashboard
 function getPricePerHourFromRentalOrSpaces(r, spacesArr) {
-  // 1) Si viene populate con pricePerHour:
   const fromRental =
     (typeof r?.space === 'object' && (r.space?.pricePerHour ?? r.space?.hourlyRate ?? r.space?.price)) ??
     (r?.pricePerHour ?? r?.hourlyRate ?? r?.price) ??
@@ -46,7 +85,6 @@ function getPricePerHourFromRentalOrSpaces(r, spacesArr) {
   const n1 = Number(fromRental);
   if (Number.isFinite(n1) && n1 > 0) return n1;
 
-  // 2) Buscar en spaces del dashboard
   const spaceId = getRentalSpaceId(r);
   const spaceObj = spacesArr.find((s) => s._id === spaceId) || null;
 
@@ -54,12 +92,11 @@ function getPricePerHourFromRentalOrSpaces(r, spacesArr) {
   return (Number.isFinite(n2) && n2 > 0) ? n2 : 0;
 }
 
+// ✅ monto alquiler con fallback hours*pph
 function getRentalAmountWithFallback(r, spacesArr) {
-  // si ya viene amount/total/price:
   const raw = Number(r?.amount ?? r?.total ?? r?.price ?? r?.priceTotal ?? r?.totalAmount ?? 0);
   if (Number.isFinite(raw) && raw > 0) return raw;
 
-  // fallback: hours * pricePerHour
   const hours = Number(r?.hours ?? 0);
   const pph = getPricePerHourFromRentalOrSpaces(r, spacesArr);
 
@@ -70,6 +107,42 @@ function getRentalAmountWithFallback(r, spacesArr) {
   return 0;
 }
 
+/** ✅ COSTOS: normalizadores */
+function getCostDate(c) {
+  return (
+    c?.date ||
+    c?.costDate ||
+    c?.expenseDate ||
+    c?.paidAt ||
+    c?.paymentDate ||
+    c?.createdAt ||
+    c?.updatedAt
+  );
+}
+
+function getCostAmount(c) {
+  const val = Number(
+    c?.amount ??
+    c?.cost ??
+    c?.value ??
+    c?.total ??
+    c?.price ??
+    c?.totalAmount ??
+    0
+  );
+  return Number.isFinite(val) ? val : 0;
+}
+
+function isCostInMonthYear(c, month, year) {
+  // si tu modelo trae month/year explícitos (super común)
+  const cm = Number(c?.month);
+  const cy = Number(c?.year);
+  if (Number.isFinite(cm) && Number.isFinite(cy) && cm > 0 && cy > 0) {
+    return cm === month && cy === year;
+  }
+  return isSameMonthYear(getCostDate(c), month, year);
+}
+
 export default function OverviewPanel({
   students = [],
   teachers = [],
@@ -77,7 +150,7 @@ export default function OverviewPanel({
   rentals = [],
   payments = [],
   costs = [],
-  spaces = [], // 👈 NUEVO
+  spaces = [], // ✅ importante para fallback de rentals
 }) {
   const now = new Date();
   const month = now.getMonth() + 1;
@@ -97,30 +170,22 @@ export default function OverviewPanel({
       .filter((p) => !p.status || p.status === 'paid')
       .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
-    // ✅ ahora sí: incluye startDateTime y recalcula monto si amount viene vacío/0
     const incomeRentals = rentalsArr
       .filter((r) => isSameMonthYear(getRentalStart(r), month, year))
       .reduce((sum, r) => sum + getRentalAmountWithFallback(r, spacesArr), 0);
 
+    // ✅ arreglado: detecta bien fechas y monto de costos
     const totalCosts = costsArr
-      .filter((c) => isSameMonthYear(c.date || c.costDate || c.createdAt, month, year))
-      .reduce((sum, c) => sum + Number(c.amount ?? c.cost ?? 0), 0);
+      .filter((c) => isCostInMonthYear(c, month, year))
+      .reduce((sum, c) => sum + getCostAmount(c), 0);
 
     const net = (incomeClasses + incomeRentals) - totalCosts;
 
-    const totalStudents = studentsArr.length;
-    const totalTeachers = teachersArr.length;
-    const totalClasses = classesArr.length;
-
-    const rentalsThisMonth = rentalsArr.filter((r) =>
-      isSameMonthYear(getRentalStart(r), month, year)
-    ).length;
-
     return {
-      totalStudents,
-      totalTeachers,
-      totalClasses,
-      rentalsThisMonth,
+      totalStudents: studentsArr.length,
+      totalTeachers: teachersArr.length,
+      totalClasses: classesArr.length,
+      rentalsThisMonth: rentalsArr.filter((r) => isSameMonthYear(getRentalStart(r), month, year)).length,
       incomeClasses,
       incomeRentals,
       totalCosts,
