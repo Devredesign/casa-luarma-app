@@ -53,42 +53,85 @@ function isSameMonthYear(dateLike, month, year) {
   return (d.getMonth() + 1) === month && d.getFullYear() === year;
 }
 
-export default function FinancialSummary({ month: initialMonth, year: initialYear, refresh }) {
+function getRentalSpaceId(r) {
+  return typeof r?.space === 'object' ? (r?.space?._id || r?.space?.id) : (r?.space || r?.spaceId);
+}
+
+function getPPH(r, spacesArr) {
+  const fromRental =
+    (typeof r?.space === 'object' && (r.space?.pricePerHour ?? r.space?.hourlyRate ?? r.space?.price)) ??
+    (r?.pricePerHour ?? r?.hourlyRate ?? r?.price) ??
+    null;
+
+  const n1 = Number(fromRental);
+  if (Number.isFinite(n1) && n1 > 0) return n1;
+
+  const spaceId = getRentalSpaceId(r);
+  const spaceObj = spacesArr.find((s) => s._id === spaceId) || null;
+
+  const n2 = Number(spaceObj?.pricePerHour ?? spaceObj?.hourlyRate ?? spaceObj?.price ?? 0);
+  return (Number.isFinite(n2) && n2 > 0) ? n2 : 0;
+}
+
+function getRentalAmountWithFallback(r, spacesArr) {
+  const raw = Number(r.amount ?? r.total ?? r.price ?? 0);
+  if (Number.isFinite(raw) && raw > 0) return raw;
+
+  const hours = Number(r.hours ?? 0);
+  const pph = getPPH(r, spacesArr);
+
+  if (Number.isFinite(hours) && hours > 0 && Number.isFinite(pph) && pph > 0) {
+    return Math.round(hours * pph);
+  }
+
+  return 0;
+}
+
+export default function FinancialSummary({
+  month: initialMonth,
+  year: initialYear,
+  refresh,
+  rentals, // 👈 nuevo
+  spaces,  // 👈 nuevo
+}) {
   const [data, setData] = useState(null);
   const [month, setMonth] = useState(initialMonth ?? (new Date().getMonth() + 1));
   const [year, setYear] = useState(initialYear ?? currentYear);
+
+  const rentalsPropArr = Array.isArray(rentals) ? rentals : null;
+  const spacesArr = Array.isArray(spaces) ? spaces : [];
 
   useEffect(() => {
     let alive = true;
     setData(null);
 
-    Promise.all([
-      api.get(`/finance/summary?month=${month}&year=${year}`),
-      api.get('/rentals'),
-    ])
-      .then(([summaryRes, rentalsRes]) => {
+    // ✅ Siempre traemos el summary, pero rentals los agarramos del prop si existen
+    const calls = [api.get(`/finance/summary?month=${month}&year=${year}`)];
+    if (!rentalsPropArr) calls.push(api.get('/rentals'));
+
+    Promise.all(calls)
+      .then((resArr) => {
         if (!alive) return;
 
+        const summaryRes = resArr[0];
+        const rentalsRes = rentalsPropArr ? null : resArr[1];
+
         const base = summaryRes?.data || {};
-        const rentalsArr = Array.isArray(rentalsRes?.data) ? rentalsRes.data : [];
+        const rentalsArr = rentalsPropArr ?? (Array.isArray(rentalsRes?.data) ? rentalsRes.data : []);
 
         const computedIncomeRentals = rentalsArr
           .filter((r) => isSameMonthYear(getRentalStart(r), month, year))
-          .reduce((sum, r) => {
-            const val = Number(r.amount ?? r.total ?? r.price ?? 0);
-            return sum + (Number.isFinite(val) ? val : 0);
-          }, 0);
+          .reduce((sum, r) => sum + getRentalAmountWithFallback(r, spacesArr), 0);
 
         const incomeClasses = Number(base.incomeClasses ?? 0);
         const incomeRentalsBackend = Number(base.incomeRentals ?? 0);
 
-        // ✅ preferimos backend si trae algo > 0, si no usamos el calculado
+        // ✅ si backend viene 0, usamos el calculado con fallback
         const incomeRentals = incomeRentalsBackend > 0 ? incomeRentalsBackend : computedIncomeRentals;
 
         const costTeachers = Number(base.costTeachers ?? 0);
         const totalCosts = Number(base.totalCosts ?? 0);
 
-        // ✅ recomputamos para que siempre cuadre con el incomeRentals final
         const grossProfit = (incomeClasses + incomeRentals) - costTeachers;
         const realProfit = grossProfit - totalCosts;
 
@@ -108,7 +151,7 @@ export default function FinancialSummary({ month: initialMonth, year: initialYea
       });
 
     return () => { alive = false; };
-  }, [month, year, refresh]);
+  }, [month, year, refresh, rentalsPropArr, spacesArr]);
 
   const kpis = [
     { label: 'Ingreso Clases',     key: 'incomeClasses' },
@@ -125,7 +168,6 @@ export default function FinancialSummary({ month: initialMonth, year: initialYea
         Resumen Financiero
       </Typography>
 
-      {/* Filtros */}
       <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
         <FormControl size="small">
           <InputLabel>Mes</InputLabel>
@@ -153,7 +195,6 @@ export default function FinancialSummary({ month: initialMonth, year: initialYea
         </FormControl>
       </Box>
 
-      {/* Gráficos con los mismos filtros */}
       <Grid container spacing={2}>
         <Grid item xs={12} md={3}>
           <FinancialChart month={month} year={year} small refresh={refresh} />
