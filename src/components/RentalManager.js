@@ -326,43 +326,53 @@ export default function RentalManager({
             ) : (
               <List>
                 {filteredRentals.map((r) => {
-                  const d = getRentalDate(r);
-                  const dateLabel = d ? d.toLocaleString() : 'Sin fecha';
-
-                  const spaceId = typeof r.space === 'object' ? r.space?._id : (r.space || r.spaceId);
-                  const spaceObj = spacesArr.find((s) => s._id === spaceId) || null;
-
-                  const spaceName =
-                    (typeof r.space === 'object' && r.space?.name) ||
-                    spaceObj?.name ||
-                    'Sin espacio';
-
-                  // ✅ fallback: si amount viene 0/undefined, recalculamos en display
-                  const hours = Number(r.hours ?? 0);
-                  const pph = Number(spaceObj?.pricePerHour ?? spaceObj?.hourlyRate ?? 0);
-                  const computed = (Number.isFinite(hours) && Number.isFinite(pph)) ? (hours * pph) : 0;
-
-                  const rawAmount = r.amount ?? r.price ?? r.total;
-                  const amountNum = Number(rawAmount);
-                  const amount = (Number.isFinite(amountNum) && amountNum > 0) ? amountNum : computed;
-
-                  return (
-                    <ListItem
-                      key={r._id}
-                      divider
-                      secondaryAction={
-                        <IconButton edge="end" aria-label="eliminar" onClick={() => deleteRental(r._id, r.eventId)}>
-                          <DeleteIcon color="error" />
-                        </IconButton>
-                      }
-                    >
-                      <ListItemText
-                        primary={`${activityName} — ${spaceName} — ₡${Number(amount || 0).toLocaleString()}`}
-                        secondary={`Fecha: ${dateLabel}${hours ? ` | Horas: ${hours}` : ''}`}
-                      />
-                    </ListItem>
-                  );
-                })}
+                const d = getRentalDate(r);
+                const dateLabel = d ? d.toLocaleString() : 'Sin fecha';
+              
+                const spaceId = typeof r.space === 'object' ? r.space?._id : (r.space || r.spaceId);
+                const spaceObj = spacesArr.find((s) => s._id === spaceId) || null;
+              
+                const spaceName =
+                  (typeof r.space === 'object' && r.space?.name) ||
+                  spaceObj?.name ||
+                  'Sin espacio';
+              
+                const activity =
+                  r.activityName ||
+                  r.activity ||
+                  r.title ||
+                  'Sin actividad';
+              
+                const tenant =
+                  r.tenantName ||
+                  r.tenant ||
+                  '';
+              
+                const hours = Number(r.hours ?? 0);
+                const pph = Number(spaceObj?.pricePerHour ?? spaceObj?.hourlyRate ?? 0);
+                const computed = (Number.isFinite(hours) && Number.isFinite(pph)) ? (hours * pph) : 0;
+              
+                const rawAmount = r.amount ?? r.price ?? r.total;
+                const amountNum = Number(rawAmount);
+                const amount = (Number.isFinite(amountNum) && amountNum > 0) ? amountNum : computed;
+              
+                return (
+                  <ListItem
+                    key={r._id}
+                    divider
+                    secondaryAction={
+                      <IconButton edge="end" aria-label="eliminar" onClick={() => deleteRental(r._id, r.eventId)}>
+                        <DeleteIcon color="error" />
+                      </IconButton>
+                    }
+                  >
+                    <ListItemText
+                      primary={`${activity} — ${spaceName} — ₡${Number(amount || 0).toLocaleString()}`}
+                      secondary={`Fecha: ${dateLabel}${tenant ? ` | Arrendatario: ${tenant}` : ''}${hours ? ` | Horas: ${hours}` : ''}`}
+                    />
+                  </ListItem>
+                );
+              })}
               </List>
             )}
           </AccordionDetails>
