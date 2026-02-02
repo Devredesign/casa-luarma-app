@@ -110,6 +110,7 @@ function getRentalAmountWithFallback(r, spacesArr) {
 /** ✅ COSTOS: normalizadores */
 function getCostDate(c) {
   return (
+    c?.dateIncurred ||
     c?.date ||
     c?.costDate ||
     c?.expenseDate ||
