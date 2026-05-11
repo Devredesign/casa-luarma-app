@@ -1,149 +1,104 @@
 // backend/routes/finance.js
 const express = require('express');
 const router = express.Router();
-
 const Payment = require('../models/Payment');
+const Rental = require('../models/Rental');
+const Cost = require('../models/Cost');
 const Class = require('../models/Class');
 const Modality = require('../models/Modality');
-const Cost = require('../models/Cost');
-const Rental = require('../models/Rental');
 
-function monthRange(month, year) {
-  const m = parseInt(month, 10) || (new Date().getMonth() + 1);
-  const y = parseInt(year, 10) || new Date().getFullYear();
-  const start = new Date(y, m - 1, 1);
-  const end = new Date(y, m, 1);
-  return { m, y, start, end };
+// Helpers
+function normalizeDateOnly(dateInput) {
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return null;
+  // Normalize to midnight local
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function inRange(d, start, end) {
+  if (!d) return false;
+  const t = d.getTime();
+  return t >= start.getTime() && t <= end.getTime();
 }
 
 router.get('/summary', async (req, res) => {
   try {
-    const { m: month, y: year, start, end } = monthRange(req.query.month, req.query.year);
+    const { startDate, endDate } = req.query;
 
-    // 1) Ingreso por clases (pagos pagados en el rango)
-    const paidPayments = await Payment.find({
-      paymentDate: { $gte: start, $lt: end },
-      status: 'paid'
-    }).lean();
+    const start = normalizeDateOnly(startDate);
+    const end = normalizeDateOnly(endDate);
 
-    const incomeClasses = paidPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
-
-    // 2) Costo profesores: teacherPay por sesión (desde modalidad)
-    //    (robusto: si en el futuro Payment trae modalityId, se puede priorizar eso)
-    const classIds = [...new Set(paidPayments.map(p => String(p.classId)).filter(Boolean))];
-
-    const classes = await Class.find({ _id: { $in: classIds } })
-      .populate('modality')
-      .lean();
-
-    const classMap = Object.fromEntries(classes.map(c => [String(c._id), c]));
-
-    let costTeachers = 0;
-    for (const p of paidPayments) {
-      const cls = classMap[String(p.classId)];
-      const sessions = Number(p.sessions || 1) || 1;
-
-      const teacherPay =
-        Number(cls?.modality?.teacherPay) ||
-        0;
-
-      costTeachers += teacherPay * sessions;
+    if (!start || !end) {
+      return res.status(400).json({ error: 'startDate y endDate son requeridos' });
     }
 
-    // 3) Ingreso alquileres (robusto con nombres de campos)
-    const rentalsAgg = await Rental.aggregate([
-      {
-        $addFields: {
-          _date: {
-            $ifNull: [
-              '$startDateTime',
-              { $ifNull: [
-                '$start',
-                { $ifNull: [
-                  '$startDate',
-                  { $ifNull: [
-                    '$date',
-                    { $ifNull: ['$rentalDate', '$createdAt'] }
-                  ] }
-                ] }
-              ] }
-            ]
-          },
-          _amountRaw: {
-            $ifNull: [
-              '$amount',
-              { $ifNull: [
-                '$price',
-                { $ifNull: ['$total', 0] }
-              ] }
-            ]
-          }
-        }
+    // End inclusive
+    end.setHours(23, 59, 59, 999);
+
+    // Pagos
+    const payments = await Payment.find({
+      date: { $gte: start, $lte: end }
+    }).lean();
+
+    // Alquileres
+    const rentals = await Rental.find({
+      startTime: { $gte: start, $lte: end }
+    }).lean();
+
+    // Costos
+    const costs = await Cost.find({
+      date: { $gte: start, $lte: end }
+    }).lean();
+
+    // Modalidades (para precios)
+    const modalities = await Modality.find().lean();
+    const modalityById = new Map(modalities.map(m => [String(m._id), m]));
+
+    // Clases (para saber modalidad asociada si el pago no trae una)
+    const classes = await Class.find().lean();
+    const classById = new Map(classes.map(c => [String(c._id), c]));
+
+    // Ingresos por pagos (clases)
+    const paymentsIncome = payments.reduce((sum, p) => {
+      const sessions = Number(p.sessions || 1);
+      let modality = null;
+
+      if (p.modality) {
+        modality = modalityById.get(String(p.modality));
+      } else if (p.class) {
+        const cls = classById.get(String(p.class));
+        if (cls?.modality) modality = modalityById.get(String(cls.modality));
+      }
+
+      const pricePerSession = Number(modality?.price || 0);
+      return sum + (pricePerSession * sessions);
+    }, 0);
+
+    // Ingresos por alquileres: horas * tarifa del espacio si existiera
+    // Nota: si Rental ya guarda amount, usarlo. Si no, estimar (amount || 0).
+    const rentalsIncome = rentals.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+
+    const totalIncome = paymentsIncome + rentalsIncome;
+
+    // Egresos por costos
+    const totalCosts = costs.reduce((sum, c) => sum + Number(c.amount || 0), 0);
+
+    const net = totalIncome - totalCosts;
+
+    res.json({
+      startDate: start,
+      endDate: end,
+      income: {
+        payments: paymentsIncome,
+        rentals: rentalsIncome,
+        total: totalIncome
       },
-      { $match: { _date: { $gte: start, $lt: end } } },
-      {
-        $addFields: {
-          _amount: {
-            $convert: {
-              input: '$_amountRaw',
-              to: 'double',
-              onError: 0,
-              onNull: 0
-            }
-          }
-        }
-      },
-      { $group: { _id: null, total: { $sum: '$_amount' } } }
-    ]);
-
-    const incomeRentals = Number(rentalsAgg?.[0]?.total || 0);
-
-    // 4) Costos operativos:
-    //    - recurrentes mensuales: recurrence='monthly'
-    //    - variables: dateIncurred dentro del mes y recurrence null
-    const fixedAgg = await Cost.aggregate([
-      { $match: { recurrence: 'monthly' } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ]);
-
-    const variableAgg = await Cost.aggregate([
-      {
-        $match: {
-          $and: [
-            { dateIncurred: { $gte: start, $lt: end } },
-            {
-              $or: [
-                { recurrence: null },
-                { recurrence: { $exists: false } }
-              ]
-            }
-          ]
-        }
-      },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ]);
-
-    const fixedMonthly = Number(fixedAgg?.[0]?.total || 0);
-    const variableMonthly = Number(variableAgg?.[0]?.total || 0);
-    const totalCosts = fixedMonthly + variableMonthly;
-
-    // 5) Ganancias
-    const grossProfit = (incomeClasses + incomeRentals) - costTeachers;
-    const realProfit = grossProfit - totalCosts;
-
-    return res.json({
-      month,
-      year,
-      incomeClasses,
-      incomeRentals,
-      costTeachers,
-      totalCosts,
-      grossProfit,
-      realProfit
+      costs: totalCosts,
+      net
     });
   } catch (err) {
-    console.error('Error /finance/summary:', err);
-    res.status(500).json({ message: 'Error generando resumen financiero' });
+    console.error('Error en /api/finance/summary:', err);
+    res.status(500).json({ error: 'Error al calcular resumen financiero' });
   }
 });
 
