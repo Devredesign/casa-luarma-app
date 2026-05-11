@@ -11,7 +11,8 @@ import AdminDashboardMobileWithFooter from './AdminDashboardMobileWithFooter';
 
 // UI + secciones
 import OverviewPanel from './OverviewPanel';
-import CalendarView from './CalendarView';
+// ✅ reemplazo: ya no usamos CalendarView (sync), solo widget embebido
+import CalendarWidget from './CalendarWidget';
 
 import StudentsManager from './StudentsManager';
 import ClassesManager from './ClassesManager';
@@ -31,9 +32,6 @@ import QuickActionDialog from './QuickActionDialog';
 import { Fab } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 
-// Calendar auth
-import { getCalendarAccessToken, clearCalendarToken } from '../services/calendarAuth';
-
 export default function AdminDashboard() {
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
@@ -52,11 +50,6 @@ export default function AdminDashboard() {
   const [costs, setCosts] = useState([]);
   const [financeRefresh, setFinanceRefresh] = useState(0);
 
-  // Calendar
-  const [calendarToken, setCalendarToken] = useState(null);
-  const [refreshCal, setRefreshCal] = useState(false);
-  const onCalendarChange = useCallback(() => setRefreshCal(f => !f), []);
-
   // SAFE arrays
   const teachersArr = useMemo(() => (Array.isArray(teachers) ? teachers : []), [teachers]);
   const spacesArr = useMemo(() => (Array.isArray(spaces) ? spaces : []), [spaces]);
@@ -67,10 +60,6 @@ export default function AdminDashboard() {
   const paymentsArr = useMemo(() => (Array.isArray(payments) ? payments : []), [payments]);
   const costsArr = useMemo(() => (Array.isArray(costs) ? costs : []), [costs]);
 
-  useEffect(() => {
-  console.log('costsArr[0]:', costsArr?.[0]);
-}, [costsArr]);
-  
   // Update callbacks
   const handleClassesUpdate = useCallback((cls) => {
     setClasses(Array.isArray(cls) ? cls : []);
@@ -93,9 +82,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     (async () => {
       try {
-        const [
-          t, sp, st, cl, rn, md, py, cs
-        ] = await Promise.all([
+        const [t, sp, st, cl, rn, md, py, cs] = await Promise.all([
           api.get('/teachers'),
           api.get('/spaces'),
           api.get('/students'),
@@ -121,36 +108,6 @@ export default function AdminDashboard() {
     })();
   }, []);
 
-  // Calendar token silent al entrar
-  useEffect(() => {
-    (async () => {
-      try {
-        const token = await getCalendarAccessToken({ interactiveFallback: false });
-        if (token) {
-          setCalendarToken(token);
-          onCalendarChange();
-        }
-      } catch (e) {
-        // normal
-      }
-    })();
-  }, [onCalendarChange]);
-
-  // Botón para conectar/renovar calendar
-  const handleRequestCalendarAccess = async () => {
-    try {
-      const token = await getCalendarAccessToken({ interactiveFallback: true });
-      setCalendarToken(token);
-      toast.success('Conectado a Google Calendar');
-      onCalendarChange();
-    } catch (e) {
-      console.error(e);
-      toast.error('Error conectando Google Calendar');
-      clearCalendarToken();
-      setCalendarToken(null);
-    }
-  };
-
   // Quick actions (opcional)
   const [qaOpen, setQaOpen] = useState(false);
 
@@ -169,7 +126,7 @@ export default function AdminDashboard() {
             rentals={rentalsArr}
             payments={paymentsArr}
             costs={costsArr}
-            spaces={spacesArr}  
+            spaces={spacesArr}
           />
         );
 
@@ -184,15 +141,15 @@ export default function AdminDashboard() {
             }}
           >
             <StudentsManager onStudentsUpdate={setStudents} />
+
+            {/* ✅ quitamos props de calendarToken/sync */}
             <ClassesManager
               teachers={teachersArr}
               spaces={spacesArr}
               modalities={modalitiesArr}
-              calendarToken={calendarToken}
-              setCalendarToken={setCalendarToken}
               onClassesUpdate={handleClassesUpdate}
-              refreshCalendar={onCalendarChange}
             />
+
             <ModalitiesManager onModalitiesUpdate={setModalities} />
             <TeacherManager onTeachersUpdate={setTeachers} />
 
@@ -218,12 +175,10 @@ export default function AdminDashboard() {
               alignItems: 'start'
             }}
           >
+            {/* ✅ quitamos props de calendarToken/sync */}
             <RentalManager
               spaces={spacesArr}
-              calendarToken={calendarToken}
-              setCalendarToken={setCalendarToken}
               onRentalsUpdate={handleRentalsUpdate}
-              onEventSynced={onCalendarChange}
             />
             <SpacesManager onSpacesUpdate={setSpaces} />
           </Box>
@@ -236,8 +191,8 @@ export default function AdminDashboard() {
               month={new Date().getMonth() + 1}
               year={new Date().getFullYear()}
               refresh={financeRefresh}
-              rentals={rentalsArr} 
-              spaces={spacesArr}  
+              rentals={rentalsArr}
+              spaces={spacesArr}
             />
 
             <Box
@@ -261,25 +216,8 @@ export default function AdminDashboard() {
 
   const content = (
     <Box sx={{ display: 'grid', gap: 2 }}>
-      {/* ✅ Calendario SIEMPRE visible */}
-      <CalendarView accessToken={calendarToken} refresh={refreshCal} />
-
-      {/* Botón conectar calendar (si no token) */}
-      {!calendarToken && (
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <button
-            onClick={handleRequestCalendarAccess}
-            style={{
-              padding: '10px 14px',
-              borderRadius: 10,
-              border: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            Conectar Google Calendar
-          </button>
-        </Box>
-      )}
+      {/* ✅ Calendario (solo vista, NO ligado al app) */}
+      <CalendarWidget />
 
       {renderSection()}
     </Box>
@@ -310,8 +248,6 @@ export default function AdminDashboard() {
         students={studentsArr}
         teachers={teachersArr}
         modalities={modalitiesArr}
-        calendarToken={calendarToken}
-        setCalendarToken={setCalendarToken}
         onStudentsUpdate={setStudents}
         onRentalsUpdate={handleRentalsUpdate}
         onPaymentsUpdate={handlePaymentsUpdate}
@@ -344,8 +280,6 @@ export default function AdminDashboard() {
         students={studentsArr}
         teachers={teachersArr}
         modalities={modalitiesArr}
-        calendarToken={calendarToken}
-        setCalendarToken={setCalendarToken}
         onStudentsUpdate={setStudents}
         onRentalsUpdate={handleRentalsUpdate}
         onPaymentsUpdate={handlePaymentsUpdate}
