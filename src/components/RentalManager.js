@@ -22,9 +22,6 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { toast } from 'react-toastify';
 
-import * as calendarService from '../services/calendarService';
-import { getCalendarAccessToken } from '../services/calendarAuth';
-
 function getRentalDate(r) {
   const raw =
     r?.startDateTime ||
@@ -57,10 +54,7 @@ function normalizeNumbers(payload) {
 export default function RentalManager({
   quick = false,
   spaces = [],
-  calendarToken,
-  setCalendarToken,
-  onRentalsUpdate,
-  onEventSynced
+  onRentalsUpdate
 }) {
   const [rentals, setRentals] = useState([]);
   const [filters, setFilters] = useState({ month: '', year: '' });
@@ -119,20 +113,7 @@ export default function RentalManager({
     });
   }, [rentalsArr, filters]);
 
-  const ensureCalendarToken = useCallback(async () => {
-    if (calendarToken) return calendarToken;
-
-    try {
-      const t = await getCalendarAccessToken({ interactiveFallback: false });
-      if (t) {
-        setCalendarToken?.(t);
-        return t;
-      }
-    } catch {
-      // ok
-    }
-    return null;
-  }, [calendarToken, setCalendarToken]);
+  // ✅ Calendar sync eliminado.
 
   const addRental = async (data) => {
     console.log('[RentalManager] addRental called with:', data);
@@ -188,59 +169,13 @@ export default function RentalManager({
       setRentals(updated);
       onRentalsUpdate?.(updated);
       toast.success('Alquiler registrado');
-
-      const startRaw =
-        res.data?.startDateTime ||
-        res.data?.startTime ||
-        res.data?.start ||
-        payload?.startDateTime;
-
-      const endRaw =
-        res.data?.endDateTime ||
-        res.data?.end ||
-        payload?.endDateTime;
-
-      if (startRaw && calendarService?.createCalendarEvent) {
-        const token = await ensureCalendarToken();
-        if (token) {
-          try {
-            const start = new Date(startRaw);
-            const end = endRaw ? new Date(endRaw) : new Date(start.getTime() + 60 * 60 * 1000);
-
-            const spaceId = res.data?.space || payload?.spaceId || payload?.space;
-            const spaceName =
-              (typeof spaceId === 'object' && spaceId?.name) ||
-              spacesArr.find((s) => s._id === spaceId)?.name ||
-              'Espacio';
-
-            const eventData = {
-              summary: `Alquiler — ${spaceName}`,
-              start: { dateTime: start.toISOString(), timeZone: 'America/Costa_Rica' },
-              end: { dateTime: end.toISOString(), timeZone: 'America/Costa_Rica' }
-            };
-
-            const ev = await calendarService.createCalendarEvent(token, eventData);
-
-            if (ev?.id) {
-              try {
-                await api.patch(`/rentals/${res.data._id}`, { eventId: ev.id });
-              } catch {
-                // ok
-              }
-            }
-
-            onEventSynced?.();
-          } catch (e) {
-            console.warn('No se pudo sincronizar alquiler en Calendar (no bloquea):', e);
-          }
-        }
-      }
     } catch (err) {
       console.error('Error registrando alquiler:', err?.response?.data || err);
       toast.error('Error registrando alquiler');
     }
   };
 
+  // Mantenemos la firma (id, eventId) para no tocar el resto del UI
   const deleteRental = async (id, eventId) => {
     try {
       await api.delete(`/rentals/${id}`);
@@ -250,18 +185,6 @@ export default function RentalManager({
       onRentalsUpdate?.(updated);
 
       toast.success('Alquiler eliminado');
-
-      if (eventId && calendarService?.deleteCalendarEvent) {
-        const token = await ensureCalendarToken();
-        if (token) {
-          try {
-            await calendarService.deleteCalendarEvent(token, eventId);
-            onEventSynced?.();
-          } catch (e) {
-            console.warn('No se pudo borrar evento de Calendar (no bloquea):', e);
-          }
-        }
-      }
     } catch (err) {
       console.error('Error eliminando alquiler:', err);
       toast.error('Error eliminando alquiler');
@@ -326,53 +249,53 @@ export default function RentalManager({
             ) : (
               <List>
                 {filteredRentals.map((r) => {
-                const d = getRentalDate(r);
-                const dateLabel = d ? d.toLocaleString() : 'Sin fecha';
-              
-                const spaceId = typeof r.space === 'object' ? r.space?._id : (r.space || r.spaceId);
-                const spaceObj = spacesArr.find((s) => s._id === spaceId) || null;
-              
-                const spaceName =
-                  (typeof r.space === 'object' && r.space?.name) ||
-                  spaceObj?.name ||
-                  'Sin espacio';
-              
-                const activity =
-                  r.activityName ||
-                  r.activity ||
-                  r.title ||
-                  'Sin actividad';
-              
-                const tenant =
-                  r.tenantName ||
-                  r.tenant ||
-                  '';
-              
-                const hours = Number(r.hours ?? 0);
-                const pph = Number(spaceObj?.pricePerHour ?? spaceObj?.hourlyRate ?? 0);
-                const computed = (Number.isFinite(hours) && Number.isFinite(pph)) ? (hours * pph) : 0;
-              
-                const rawAmount = r.amount ?? r.price ?? r.total;
-                const amountNum = Number(rawAmount);
-                const amount = (Number.isFinite(amountNum) && amountNum > 0) ? amountNum : computed;
-              
-                return (
-                  <ListItem
-                    key={r._id}
-                    divider
-                    secondaryAction={
-                      <IconButton edge="end" aria-label="eliminar" onClick={() => deleteRental(r._id, r.eventId)}>
-                        <DeleteIcon color="error" />
-                      </IconButton>
-                    }
-                  >
-                    <ListItemText
-                      primary={`${activity} — ${spaceName} — ₡${Number(amount || 0).toLocaleString()}`}
-                      secondary={`Fecha: ${dateLabel}${tenant ? ` | Arrendatario: ${tenant}` : ''}${hours ? ` | Horas: ${hours}` : ''}`}
-                    />
-                  </ListItem>
-                );
-              })}
+                  const d = getRentalDate(r);
+                  const dateLabel = d ? d.toLocaleString() : 'Sin fecha';
+
+                  const spaceId = typeof r.space === 'object' ? r.space?._id : (r.space || r.spaceId);
+                  const spaceObj = spacesArr.find((s) => s._id === spaceId) || null;
+
+                  const spaceName =
+                    (typeof r.space === 'object' && r.space?.name) ||
+                    spaceObj?.name ||
+                    'Sin espacio';
+
+                  const activity =
+                    r.activityName ||
+                    r.activity ||
+                    r.title ||
+                    'Sin actividad';
+
+                  const tenant =
+                    r.tenantName ||
+                    r.tenant ||
+                    '';
+
+                  const hours = Number(r.hours ?? 0);
+                  const pph = Number(spaceObj?.pricePerHour ?? spaceObj?.hourlyRate ?? 0);
+                  const computed = (Number.isFinite(hours) && Number.isFinite(pph)) ? (hours * pph) : 0;
+
+                  const rawAmount = r.amount ?? r.price ?? r.total;
+                  const amountNum = Number(rawAmount);
+                  const amount = (Number.isFinite(amountNum) && amountNum > 0) ? amountNum : computed;
+
+                  return (
+                    <ListItem
+                      key={r._id}
+                      divider
+                      secondaryAction={
+                        <IconButton edge="end" aria-label="eliminar" onClick={() => deleteRental(r._id, r.eventId)}>
+                          <DeleteIcon color="error" />
+                        </IconButton>
+                      }
+                    >
+                      <ListItemText
+                        primary={`${activity} — ${spaceName} — ₡${Number(amount || 0).toLocaleString()}`}
+                        secondary={`Fecha: ${dateLabel}${tenant ? ` | Arrendatario: ${tenant}` : ''}${hours ? ` | Horas: ${hours}` : ''}`}
+                      />
+                    </ListItem>
+                  );
+                })}
               </List>
             )}
           </AccordionDetails>
