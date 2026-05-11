@@ -1,85 +1,24 @@
 // src/services/calendarService.js
+// Nota: Este servicio se conserva por compatibilidad, pero el app ya NO sincroniza
+// eventos automáticamente. Podés eliminarlo más adelante si no lo necesitás.
 
-const BASE = 'https://www.googleapis.com/calendar/v3';
-const CAL_ID = 'primary';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
-function authHeaders(accessToken) {
-  return {
-    Authorization: `Bearer ${accessToken}`,
-    'Content-Type': 'application/json',
-  };
-}
+export async function listEvents({ timeMin, maxResults } = {}) {
+  const params = new URLSearchParams();
+  if (timeMin) params.set('timeMin', timeMin);
+  if (maxResults) params.set('maxResults', String(maxResults));
 
-export async function listUpcomingEvents(accessToken) {
-  const timeMin = new Date().toISOString();
-  const url = `${BASE}/calendars/${CAL_ID}/events?timeMin=${encodeURIComponent(timeMin)}&maxResults=10&singleEvents=true&orderBy=startTime`;
-
-  const res = await fetch(url, { headers: authHeaders(accessToken) });
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok) {
-    const err = new Error(`Error fetching events: ${res.status}`);
-    err.status = res.status;
-    err.data = data;
-    throw err;
-  }
-  return data;
-}
-
-export async function createCalendarEvent(accessToken, eventData) {
-  const url = `${BASE}/calendars/${CAL_ID}/events`;
+  const url = `${API_BASE_URL}/api/calendar/events?${params.toString()}`;
 
   const res = await fetch(url, {
-    method: 'POST',
-    headers: authHeaders(accessToken),
-    body: JSON.stringify(eventData),
-  });
-
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok) {
-    const err = new Error(`Error creating event: ${res.status}`);
-    err.status = res.status;
-    err.data = data;
-    throw err;
-  }
-  return data;
-}
-
-export async function updateCalendarEvent(accessToken, eventId, eventData) {
-  const url = `${BASE}/calendars/${CAL_ID}/events/${encodeURIComponent(eventId)}`;
-
-  const res = await fetch(url, {
-    method: 'PATCH',
-    headers: authHeaders(accessToken),
-    body: JSON.stringify(eventData),
-  });
-
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok) {
-    const err = new Error(`Error updating event: ${res.status}`);
-    err.status = res.status;
-    err.data = data;
-    throw err;
-  }
-  return data;
-}
-
-export async function deleteCalendarEvent(accessToken, eventId) {
-  const url = `${BASE}/calendars/${CAL_ID}/events/${encodeURIComponent(eventId)}`;
-
-  const res = await fetch(url, {
-    method: 'DELETE',
-    headers: authHeaders(accessToken),
+    headers: { 'Content-Type': 'application/json' }
   });
 
   if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    const err = new Error(`Error deleting event: ${res.status}`);
-    err.status = res.status;
-    err.data = data;
-    throw err;
+    const text = await res.text();
+    throw new Error(text || 'Error al listar eventos');
   }
-  return true;
+
+  return res.json();
 }
