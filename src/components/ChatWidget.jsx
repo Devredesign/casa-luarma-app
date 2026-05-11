@@ -1,53 +1,96 @@
-// src/components/ChatWidget.jsx
 import React, { useState } from 'react';
-import axios from 'axios';
-import { Box, TextField, Button, List, ListItem, ListItemText, Paper } from '@mui/material';
+import { Box, IconButton, TextField, Paper, Typography } from '@mui/material';
+import ChatIcon from '@mui/icons-material/Chat';
 
-export default function ChatWidget() {
-  const [input, setInput]   = useState('');
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
+
+const ChatWidget = () => {
+  const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { from: 'bot', text: '¡Hola! ¿En qué puedo ayudarte hoy?' }
+    { role: 'assistant', content: 'Hola! ¿En qué te puedo ayudar con Casa Luarma?' }
   ]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const toggleOpen = () => setOpen(prev => !prev);
 
   const sendMessage = async () => {
-    if (!input.trim()) return;
-    // Añade el mensaje del usuario a la lista
-    setMessages(prev => [...prev, { from:'user', text: input }]);
-    const userMsg = input;
+    if (!input.trim() || loading) return;
+
+    const newUserMessage = { role: 'user', content: input.trim() };
+    const newMessages = [...messages, newUserMessage];
+    setMessages(newMessages);
     setInput('');
+    setLoading(true);
 
     try {
-      const res = await axios.post('/api/chat', { message: userMsg });
-      const botReply = res.data.reply;
-      setMessages(prev => [...prev, { from:'bot', text: botReply }]);
+      const res = await fetch(`${API_BASE_URL}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: newMessages })
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || 'Error en el chat');
+      }
+
+      const data = await res.json();
+      setMessages([...newMessages, { role: 'assistant', content: data.reply }]);
     } catch (err) {
       console.error(err);
-      setMessages(prev => [...prev, { from:'bot', text: 'Lo siento, algo salió mal.' }]);
+      setMessages([...newMessages, { role: 'assistant', content: 'Error: no pude responder. Revisá el backend.' }]);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <Paper sx={{ p:2, maxWidth:400 }}>
-      <List sx={{ maxHeight:300, overflowY:'auto' }}>
-        {messages.map((m, i) => (
-          <ListItem key={i}>
-            <ListItemText
-              primary={m.text}
-              sx={{ textAlign: m.from==='user' ? 'right' : 'left' }}
+    <Box sx={{ position: 'fixed', bottom: 16, right: 16, zIndex: 9999 }}>
+      {!open ? (
+        <IconButton color="primary" onClick={toggleOpen} sx={{ bgcolor: 'white' }}>
+          <ChatIcon />
+        </IconButton>
+      ) : (
+        <Paper elevation={3} sx={{ width: 320, height: 420, display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ p: 1, bgcolor: 'primary.main', color: 'white', display: 'flex', justifyContent: 'space-between' }}>
+            <Typography variant="subtitle1">Asistente</Typography>
+            <IconButton size="small" onClick={toggleOpen} sx={{ color: 'white' }}>
+              ✕
+            </IconButton>
+          </Box>
+
+          <Box sx={{ flex: 1, p: 1, overflowY: 'auto' }}>
+            {messages.map((m, idx) => (
+              <Box key={idx} sx={{ mb: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {m.role === 'user' ? 'Vos' : 'Asistente'}
+                </Typography>
+                <Typography variant="body2">{m.content}</Typography>
+              </Box>
+            ))}
+          </Box>
+
+          <Box sx={{ p: 1, display: 'flex', gap: 1 }}>
+            <TextField
+              size="small"
+              fullWidth
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Escribí..."
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') sendMessage();
+              }}
+              disabled={loading}
             />
-          </ListItem>
-        ))}
-      </List>
-      <Box sx={{ display:'flex', mt:1 }}>
-        <TextField
-          fullWidth
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key==='Enter' && sendMessage()}
-          placeholder="Escribe tu mensaje…"
-        />
-        <Button onClick={sendMessage}>Enviar</Button>
-      </Box>
-    </Paper>
+            <IconButton onClick={sendMessage} disabled={loading}>
+              ➤
+            </IconButton>
+          </Box>
+        </Paper>
+      )}
+    </Box>
   );
-}
+};
+
+export default ChatWidget;
