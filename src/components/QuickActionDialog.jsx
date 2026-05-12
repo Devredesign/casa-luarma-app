@@ -1,5 +1,5 @@
 // src/components/QuickActionDialog.jsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -11,6 +11,8 @@ import {
   StepLabel,
   Stack
 } from '@mui/material';
+
+import api from '../services/api';
 
 import StudentsManager from './StudentsManager';
 import RentalManager   from './RentalManager';
@@ -40,6 +42,26 @@ export default function QuickActionDialog({
   const [activeStep, setActiveStep] = useState(0);
   const [action, setAction] = useState(null);
 
+  const [modalitiesLocal, setModalitiesLocal] = useState(modalities);
+
+  useEffect(() => {
+    setModalitiesLocal(Array.isArray(modalities) ? modalities : []);
+  }, [modalities]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (Array.isArray(modalitiesLocal) && modalitiesLocal.length > 0) return;
+
+    (async () => {
+      try {
+        const res = await api.get('/modalities');
+        setModalitiesLocal(Array.isArray(res.data) ? res.data : []);
+      } catch (e) {
+        console.error('No pude cargar modalidades:', e);
+      }
+    })();
+  }, [open, modalitiesLocal]);
+
   const handleSelectAction = (act) => {
     setAction(act);
     setActiveStep(1);
@@ -67,7 +89,7 @@ export default function QuickActionDialog({
           <Button
             variant="contained"
             onClick={() => handleSelectAction('crearClase')}
-            disabled={!teachers?.length || !modalities?.length}
+            disabled={!teachers?.length || !modalitiesLocal?.length}
           >
             Crear Clase
           </Button>
@@ -102,7 +124,7 @@ export default function QuickActionDialog({
             quick
             classesList={classesList}
             students={students}
-            modalities={modalities} 
+            modalities={modalitiesLocal}
             onPaymentsUpdate={onPaymentsUpdate}
           />
         );
@@ -113,7 +135,7 @@ export default function QuickActionDialog({
             quick
             teachers={teachers}
             spaces={spaces}
-            modalities={modalities}
+            modalities={modalitiesLocal}
             onClassesUpdate={onClassesUpdate}
           />
         );
