@@ -64,7 +64,7 @@ export default function TeacherPayouts() {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h4" sx={{ mt: 3 }}>
         Desglose por Profesor
       </Typography>
 
