@@ -1,173 +1,157 @@
-import React, { useEffect, useState } from 'react';
+// src/components/QuickActionDialog.jsx
+import React, { useState } from 'react';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions, Button,
-  FormControl, InputLabel, Select, MenuItem, TextField, Box, Typography
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Stepper,
+  Step,
+  StepLabel,
+  Stack
 } from '@mui/material';
 
-import api from '../services/api';
+import StudentsManager from './StudentsManager';
+import RentalManager   from './RentalManager';
+import PaymentManager  from './PaymentManager';
+import ClassesManager  from './ClassesManager';
+import TeacherManager  from './TeacherManager';
+
+const steps = [
+  '¿Qué querés hacer?',
+  'Acción rápida'
+];
 
 export default function QuickActionDialog({
   open,
   onClose,
-  actionType,
-  students = [],
-  classes = [],
-  rentals = [],
-  modalities = [],
   spaces = [],
-  onSaved
+  classesList = [],
+  students = [],
+  teachers = [],
+  modalities = [],
+  onStudentsUpdate,
+  onRentalsUpdate,
+  onPaymentsUpdate,
+  onClassesUpdate,
+  onTeachersUpdate
 }) {
-  const [selectedStudent, setSelectedStudent] = useState('');
-  const [selectedClass, setSelectedClass] = useState('');
-  const [selectedModality, setSelectedModality] = useState('');
-  const [sessions, setSessions] = useState(4);
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [method, setMethod] = useState('Efectivo');
-  const [amount, setAmount] = useState(0);
+  const [activeStep, setActiveStep] = useState(0);
+  const [action, setAction] = useState(null);
 
-  useEffect(() => {
-    // reset form when open/action changes
-    setSelectedStudent('');
-    setSelectedClass('');
-    setSelectedModality('');
-    setSessions(4);
-    setDate(new Date().toISOString().slice(0, 10));
-    setMethod('Efectivo');
-    setAmount(0);
-  }, [open, actionType]);
-
-  useEffect(() => {
-    if (actionType === 'payment') {
-      const mod = modalities.find(m => m._id === selectedModality);
-      const price = Number(mod?.price || 0);
-      setAmount(price * Number(sessions || 0));
-    }
-  }, [selectedModality, sessions, actionType, modalities]);
-
-  const handleSave = async () => {
-    try {
-      if (actionType === 'payment') {
-        await api.post('/payments', {
-          student: selectedStudent,
-          class: selectedClass,
-          modality: selectedModality || undefined,
-          sessions: Number(sessions || 1),
-          date,
-          method
-        });
-      }
-
-      if (actionType === 'rental') {
-        // Si quisieras acción rápida de alquiler, se implementa aquí
-      }
-
-      onSaved?.();
-      onClose();
-    } catch (err) {
-      console.error(err);
-      alert('Error al guardar. Revisá consola.');
-    }
+  const handleSelectAction = (act) => {
+    setAction(act);
+    setActiveStep(1);
   };
 
-  const titleMap = {
-    payment: 'Registrar Pago Rápido',
-    rental: 'Registrar Alquiler Rápido'
+  const renderStepContent = () => {
+    if (activeStep === 0) {
+      return (
+        <Stack
+          direction="row"
+          spacing={2}
+          flexWrap="wrap"
+          justifyContent="center"
+          sx={{ my: 2, rowGap: 2 }}
+        >
+          <Button variant="contained" onClick={() => handleSelectAction('matricular')}>
+            Matricular Estudiante
+          </Button>
+          <Button variant="contained" onClick={() => handleSelectAction('alquilar')}>
+            Alquilar Espacio
+          </Button>
+          <Button variant="contained" onClick={() => handleSelectAction('pagar')}>
+            Guardar Pago
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => handleSelectAction('crearClase')}
+            disabled={!teachers?.length || !modalities?.length}
+          >
+            Crear Clase
+          </Button>
+          <Button variant="contained" onClick={() => handleSelectAction('anadirProfe')}>
+            Añadir Profesor
+          </Button>
+        </Stack>
+      );
+    }
+
+    switch (action) {
+      case 'matricular':
+        return (
+          <StudentsManager
+            quick
+            onStudentsUpdate={onStudentsUpdate}
+          />
+        );
+
+      case 'alquilar':
+        return (
+          <RentalManager
+            quick
+            spaces={spaces}
+            onRentalsUpdate={onRentalsUpdate}
+          />
+        );
+
+      case 'pagar':
+        return (
+          <PaymentManager
+            quick
+            classesList={classesList}
+            students={students}
+            modalities={modalities}   {/* ✅ antes faltaba */}
+            onPaymentsUpdate={onPaymentsUpdate}
+          />
+        );
+
+      case 'crearClase':
+        return (
+          <ClassesManager
+            quick
+            teachers={teachers}
+            spaces={spaces}
+            modalities={modalities}
+            onClassesUpdate={onClassesUpdate}
+          />
+        );
+
+      case 'anadirProfe':
+        return (
+          <TeacherManager
+            quick
+            onTeachersUpdate={onTeachersUpdate}
+          />
+        );
+
+      default:
+        return null;
+    }
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>{titleMap[actionType] || 'Acción Rápida'}</DialogTitle>
+    <Dialog open={open} maxWidth="md" fullWidth>
+      <DialogTitle>Acción rápida</DialogTitle>
 
       <DialogContent>
-        {actionType === 'payment' && (
-          <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
-            <FormControl fullWidth>
-              <InputLabel>Estudiante</InputLabel>
-              <Select
-                value={selectedStudent}
-                label="Estudiante"
-                onChange={(e) => setSelectedStudent(e.target.value)}
-              >
-                {students.map(s => (
-                  <MenuItem key={s._id} value={s._id}>{s.name}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+        <Stepper activeStep={activeStep} alternativeLabel>
+          {steps.map(label => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
 
-            <FormControl fullWidth>
-              <InputLabel>Clase</InputLabel>
-              <Select
-                value={selectedClass}
-                label="Clase"
-                onChange={(e) => setSelectedClass(e.target.value)}
-              >
-                {classes.map(c => (
-                  <MenuItem key={c._id} value={c._id}>{c.name}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl fullWidth>
-              <InputLabel>Modalidad</InputLabel>
-              <Select
-                value={selectedModality}
-                label="Modalidad"
-                onChange={(e) => setSelectedModality(e.target.value)}
-              >
-                {modalities.map(m => (
-                  <MenuItem key={m._id} value={m._id}>
-                    {m.name} (₡{m.price})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <TextField
-              label="Sesiones"
-              type="number"
-              value={sessions}
-              onChange={(e) => setSessions(e.target.value)}
-              fullWidth
-            />
-
-            <TextField
-              label="Fecha"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              fullWidth
-              InputLabelProps={{ shrink: true }}
-            />
-
-            <TextField
-              label="Método"
-              value={method}
-              onChange={(e) => setMethod(e.target.value)}
-              fullWidth
-            />
-
-            <Typography variant="body2" color="text.secondary">
-              Monto estimado: <b>₡{amount.toLocaleString()}</b>
-            </Typography>
-          </Box>
-        )}
-
-        {actionType !== 'payment' && (
-          <Typography variant="body2" sx={{ mt: 1 }}>
-            Acción no implementada todavía.
-          </Typography>
-        )}
+        {renderStepContent()}
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose}>Cancelar</Button>
-        <Button
-          variant="contained"
-          onClick={handleSave}
-          disabled={actionType === 'payment' && (!selectedStudent || !selectedClass || !selectedModality)}
-        >
-          Guardar
-        </Button>
+        {activeStep === 0
+          ? <Button onClick={onClose}>Cancelar</Button>
+          : <Button onClick={() => setActiveStep(0)}>Volver a acciones</Button>
+        }
       </DialogActions>
     </Dialog>
   );
