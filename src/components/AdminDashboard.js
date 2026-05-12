@@ -12,7 +12,7 @@ import AdminDashboardMobileWithFooter from './AdminDashboardMobileWithFooter';
 // UI + secciones
 import OverviewPanel from './OverviewPanel';
 // ✅ reemplazo: ya no usamos CalendarView (sync), solo widget embebido
-import CalendarWidget from './CalendarWidget';
+//import CalendarWidget from './CalendarWidget';
 
 import StudentsManager from './StudentsManager';
 import ClassesManager from './ClassesManager';
