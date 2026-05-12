@@ -1,4 +1,4 @@
-mport { Box, Typography, Button, Paper } from '@mui/material';
+import { Box, Typography, Button, Paper } from '@mui/material';
 
 export default function CalendarWidget() {
   const embedUrl = process.env.REACT_APP_CALENDAR_EMBED_URL || '';
