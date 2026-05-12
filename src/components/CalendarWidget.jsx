@@ -20,7 +20,7 @@ export default function CalendarWidget() {
 
       {!embedUrl ? (
         <Typography variant="body2" color="text.secondary">
-          No hay URL de embed configurada. Agregá <code>REACT_APP_CALENDAR_EMBED_URL</code> en tu <code>.env.local</code>.
+          
         </Typography>
       ) : (
         <Box sx={{ width: '100%', height: 520 }}>
