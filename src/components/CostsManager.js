@@ -79,7 +79,7 @@ export default function CostsManager() {
 
   return (
     <div>
-      <Typography variant="h4" sx={{ mt: 3, mb: 1 }}>
+      <Typography variant="h4" sx={{ mt: 3 }}>
         Costos Operativos
       </Typography>
 
