@@ -14,15 +14,7 @@ export default function CalendarWidget() {
         <Typography variant="body2" color="text.secondary">
         </Typography>
       ) : (
-        <Box sx={{ width: '100%', height: 520 }}>
-          <iframe
-            title="Google Calendar"
-            src={embedUrl}
-            style={{ border: 0, width: '100%', height: '100%' }}
-            frameBorder="0"
-            scrolling="no"
-          />
-        </Box>
+        
       )}
     </Paper>
   );
