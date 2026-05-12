@@ -144,6 +144,12 @@ function isCostInMonthYear(c, month, year) {
   return isSameMonthYear(getCostDate(c), month, year);
 }
 
+/** ✅ NUEVO: detecta costos fijos mensuales (aunque dateIncurred sea viejo) */
+function isMonthlyRecurring(c) {
+  const r = String(c?.recurrence || '').toLowerCase().trim();
+  return r === 'monthly' || r === 'mensual';
+}
+
 export default function OverviewPanel({
   students = [],
   teachers = [],
@@ -175,10 +181,17 @@ export default function OverviewPanel({
       .filter((r) => isSameMonthYear(getRentalStart(r), month, year))
       .reduce((sum, r) => sum + getRentalAmountWithFallback(r, spacesArr), 0);
 
-    // ✅ arreglado: detecta bien fechas y monto de costos
-    const totalCosts = costsArr
+    // ✅ CAMBIO MÍNIMO: incluir fijos mensuales SIEMPRE + variables del mes
+    const monthlyFixedCosts = costsArr
+      .filter(isMonthlyRecurring)
+      .reduce((sum, c) => sum + getCostAmount(c), 0);
+
+    const variableCostsThisMonth = costsArr
+      .filter((c) => !isMonthlyRecurring(c))
       .filter((c) => isCostInMonthYear(c, month, year))
       .reduce((sum, c) => sum + getCostAmount(c), 0);
+
+    const totalCosts = monthlyFixedCosts + variableCostsThisMonth;
 
     const net = (incomeClasses + incomeRentals) - totalCosts;
 
