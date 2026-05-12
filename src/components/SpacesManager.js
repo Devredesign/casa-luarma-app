@@ -145,7 +145,7 @@ const SpacesManager = ({ onSpacesUpdate }) => {
 
   return (
     <div>
-      <Typography variant="h4" gutterBottom sx={{ mt: 3 }}>
+      <Typography variant="h4" sx={{ mt: 3 }}>
         Espacios
       </Typography>
 
