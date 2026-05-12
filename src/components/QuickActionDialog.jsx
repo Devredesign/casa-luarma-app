@@ -102,7 +102,7 @@ export default function QuickActionDialog({
             quick
             classesList={classesList}
             students={students}
-            modalities={modalities}   {/* ✅ antes faltaba */}
+            modalities={modalities}  
             onPaymentsUpdate={onPaymentsUpdate}
           />
         );
