@@ -13,14 +13,14 @@ import { Box, Typography } from '@mui/material';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
-export default function FinancialChart({ month, year, small }) {
+export default function FinancialChart({ month, year, small, refresh }) {
   const [data, setData] = useState(null);
 
   useEffect(() => {
     api.get(`/finance/summary?month=${month}&year=${year}`)
       .then(res => setData(res.data))
       .catch(console.error);
-  }, [month, year]);
+  }, [month, year, refresh]);
 
   if (!data) return <Typography>Cargando gráfico…</Typography>;
 
