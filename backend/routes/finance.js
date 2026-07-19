@@ -14,8 +14,13 @@ function monthRange(month, year) {
 
   if (m < 1 || m > 12 || y < 2000 || y > 3000) return null;
 
-  const start = new Date(y, m - 1, 1);
-  const end = new Date(y, m, 1);
+  const start = new Date(
+  Date.UTC(y, m - 1, 1)
+);
+
+const end = new Date(
+  Date.UTC(y, m, 1)
+);
   return { m, y, start, end };
 }
 
