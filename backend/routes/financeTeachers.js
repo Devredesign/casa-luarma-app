@@ -8,8 +8,13 @@ router.get('/', async (req, res) => {
   try {
     const month = parseInt(req.query.month) || new Date().getMonth()+1;
     const year  = parseInt(req.query.year)  || new Date().getFullYear();
-    const start = new Date(year, month-1, 1);
-    const end   = new Date(year, month,   1);
+    const start = new Date(
+  Date.UTC(year, month - 1, 1)
+);
+
+const end = new Date(
+  Date.UTC(year, month, 1)
+);
 
     const payments = await Payment.find({
       paymentDate: { $gte: start, $lt: end },
