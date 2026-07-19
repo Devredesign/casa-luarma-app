@@ -122,51 +122,58 @@ router.get('/summary', async (req, res) => {
       }
     }
 
-    // 3) Ingreso alquileres (robusto con campos distintos)
-    const rentalsAgg = await Rental.aggregate([
-      {
-        $addFields: {
-          _date: {
-            $ifNull: [
-              '$startDateTime',
-              { $ifNull: [
-                '$startTime',
-                { $ifNull: [
-                  '$start',
-                  { $ifNull: [
-                    '$startDate',
-                    { $ifNull: [
-                      '$date',
-                      { $ifNull: ['$rentalDate', '$createdAt'] }
-                    ] }
-                  ] }
-                ] }
-              ] }
-            ]
-          },
-          _amountRaw: {
-            $ifNull: [
-              '$amount',
-              { $ifNull: [
-                '$price',
-                { $ifNull: ['$total', 0] }
-              ] }
-            ]
-          }
-        }
-      },
-      { $match: { _date: { $gte: start, $lt: end } } },
-      {
-        $addFields: {
-          _amount: {
-            $convert: { input: '$_amountRaw', to: 'double', onError: 0, onNull: 0 }
-          }
-        }
-      },
-      { $group: { _id: null, total: { $sum: '$_amount' } } }
-    ]);
+   // 3) Ingreso de alquileres
+const rentals = await Rental.find({
+  startTime: {
+    $gte: start,
+    $lt: end,
+  },
+})
+  .populate({
+    path: 'space',
+    select: 'pricePerHour',
+  })
+  .lean();
 
-    const incomeRentals = Number(rentalsAgg?.[0]?.total || 0);
+const incomeRentals = rentals.reduce((total, rental) => {
+  const storedAmount = Number(rental.amount);
+
+  // Alquileres nuevos: usamos el monto guardado.
+  if (Number.isFinite(storedAmount) && storedAmount > 0) {
+    return total + storedAmount;
+  }
+
+  const hours = Number(rental.hours);
+
+  const snapshotPrice = Number(
+    rental.pricePerHourSnapshot
+  );
+
+  const currentSpacePrice = Number(
+    rental.space?.pricePerHour
+  );
+
+  /*
+   * Para registros anteriores:
+   * 1. Intentamos usar el precio histórico.
+   * 2. Si no existe, usamos el precio actual del espacio.
+   */
+  const pricePerHour =
+    Number.isFinite(snapshotPrice) && snapshotPrice > 0
+      ? snapshotPrice
+      : currentSpacePrice;
+
+  if (
+    !Number.isFinite(hours) ||
+    hours <= 0 ||
+    !Number.isFinite(pricePerHour) ||
+    pricePerHour <= 0
+  ) {
+    return total;
+  }
+
+  return total + Math.round(hours * pricePerHour);
+}, 0);
 
     // 4) Costos: fijos mensuales + variables del mes
     const fixedAgg = await Cost.aggregate([
