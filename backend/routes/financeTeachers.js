@@ -41,12 +41,40 @@ const end = new Date(
       summary[prof].totalToPay += toPay;
     });
 
-    const result = Object.values(summary).map(item => ({
-      professor: item.professor,
-      totalIngress: item.totalIngress,
-      totalToPay: item.totalToPay,
-      totalProfit: item.totalIngress - item.totalToPay
-    }));
+    const IVA_RATE = 0.13;
+
+const result = Object.values(summary).map(item => {
+  const totalIngress = Number(
+    item.totalIngress || 0
+  );
+
+  const totalToPay = Number(
+    item.totalToPay || 0
+  );
+
+  const totalVat = Math.round(
+    totalToPay * IVA_RATE
+  );
+
+  const totalToPayWithVat =
+    totalToPay + totalVat;
+
+  return {
+    professor: item.professor,
+    totalIngress,
+    totalToPay,
+
+    // IVA correspondiente al pago del profesor
+    totalVat,
+
+    // Total que Casa Luarma debe desembolsar
+    totalToPayWithVat,
+
+    // Conservamos la ganancia actual sin modificar
+    totalProfit:
+      totalIngress - totalToPay
+  };
+});
 
     res.json(result);
   } catch (err) {
