@@ -115,11 +115,26 @@ export default function TeacherPayouts() {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Profesor</TableCell>
-                    <TableCell align="right">Ingresos (₡)</TableCell>
-                    <TableCell align="right">A Pagar (₡)</TableCell>
-                    <TableCell align="right">Ganancia (₡)</TableCell>
-                  </TableRow>
+  <TableCell>
+    Profesor
+  </TableCell>
+
+  <TableCell align="right">
+    Ingresos (₡)
+  </TableCell>
+
+  <TableCell align="right">
+    A Pagar (₡)
+  </TableCell>
+
+  <TableCell align="right">
+    A Pagar + IVA 13% (₡)
+  </TableCell>
+
+  <TableCell align="right">
+    Ganancia (₡)
+  </TableCell>
+</TableRow>
                 </TableHead>
 
                 <TableBody>
