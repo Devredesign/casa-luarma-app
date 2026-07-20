@@ -143,13 +143,34 @@ export default function TeacherPayouts() {
                     const totalIngress = Number(row?.totalIngress ?? 0);
                     const totalToPay = Number(row?.totalToPay ?? 0);
                     const totalProfit = Number(row?.totalProfit ?? 0);
+                    const totalToPayWithVat = Number(row?.totalToPayWithVat ?? Math.round(totalToPay * 1.13));
+
+              
 
                     return (
-                      <TableRow key={professor}>
-                        <TableCell>{professor}</TableCell>
-                        <TableCell align="right">{totalIngress.toLocaleString()}</TableCell>
-                        <TableCell align="right">{totalToPay.toLocaleString()}</TableCell>
-                        <TableCell align="right">{totalProfit.toLocaleString()}</TableCell>
+                     <TableRow key={professor}>
+                        <TableCell>
+                          {professor}
+                        </TableCell>
+                      
+                        <TableCell align="right">
+                          {totalIngress.toLocaleString('es-CR')}
+                        </TableCell>
+                      
+                        <TableCell align="right">
+                          {totalToPay.toLocaleString('es-CR')}
+                        </TableCell>
+                      
+                        <TableCell
+                          align="right"
+                          sx={{ fontWeight: 700 }}
+                        >
+                          {totalToPayWithVat.toLocaleString('es-CR')}
+                        </TableCell>
+                      
+                        <TableCell align="right">
+                          {totalProfit.toLocaleString('es-CR')}
+                        </TableCell>
                       </TableRow>
                     );
                   })}
