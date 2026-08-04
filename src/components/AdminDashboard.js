@@ -185,29 +185,70 @@ export default function AdminDashboard() {
         );
 
       case 3:
-        return (
-          <Box sx={{ display: 'grid', gap: 2 }}>
-            <FinancialSummary
-              month={new Date().getMonth() + 1}
-              year={new Date().getFullYear()}
-              refresh={financeRefresh}
-              rentals={rentalsArr}
-              spaces={spacesArr}
-            />
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gap: 2,
+        width: '100%',
+        maxWidth: '100%',
+        minWidth: 0
+      }}
+    >
+      <FinancialSummary
+        month={
+          new Date().getUTCMonth() + 1
+        }
+        year={
+          new Date().getUTCFullYear()
+        }
+        refresh={financeRefresh}
+        rentals={rentalsArr}
+        spaces={spacesArr}
+      />
 
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-                gap: 2,
-                alignItems: 'start'
-              }}
-            >
-              <TeacherPayouts />
-              <CostsManager onCostsUpdate={handleCostsUpdate} />
-            </Box>
-          </Box>
-        );
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: 'minmax(0, 1fr)',
+            md:
+              'minmax(0, 1fr) minmax(0, 1fr)'
+          },
+          gap: 2,
+          alignItems: 'start',
+          width: '100%',
+          maxWidth: '100%',
+          minWidth: 0
+        }}
+      >
+        <Box
+          sx={{
+            width: '100%',
+            minWidth: 0
+          }}
+        >
+          <TeacherPayouts
+            teachers={teachersArr}
+            refresh={financeRefresh}
+          />
+        </Box>
+
+        <Box
+          sx={{
+            width: '100%',
+            minWidth: 0
+          }}
+        >
+          <CostsManager
+            onCostsUpdate={
+              handleCostsUpdate
+            }
+          />
+        </Box>
+      </Box>
+    </Box>
+  );
 
       default:
         return null;
@@ -215,7 +256,15 @@ export default function AdminDashboard() {
   };
 
   const content = (
-    <Box sx={{ display: 'grid', gap: 2 }}>
+  <Box
+    sx={{
+      display: 'grid',
+      gap: 2,
+      width: '100%',
+      maxWidth: '100%',
+      minWidth: 0
+    }}
+  >
       {/* ✅ Calendario (solo vista, NO ligado al app) */}
       <CalendarWidget />
 
