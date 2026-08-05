@@ -200,9 +200,20 @@ const incomeRentals = rentals.reduce((total, rental) => {
 
     const totalCosts = Number(fixedAgg?.[0]?.total || 0) + Number(variableAgg?.[0]?.total || 0);
 
-    // 5) Ganancias
-    const grossProfit = (incomeClasses + incomeRentals) - costTeachers;
-    const realProfit = grossProfit - totalCosts;
+    // 5) Resultados financieros
+
+// Todo el dinero ingresado durante el mes,
+// antes de pagar profesores y costos operativos.
+const grossProfit =
+  incomeClasses +
+  incomeRentals;
+
+// Dinero restante después de pagar
+// profesores y costos operativos.
+const realProfit =
+  grossProfit -
+  costTeachers -
+  totalCosts;
 
     return res.json({
       month,
