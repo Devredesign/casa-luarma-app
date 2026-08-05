@@ -107,7 +107,7 @@ export default function ProfitLineChart({
         datasets: [
           {
             label:
-              'Ganancia Bruta',
+              'Ingresos Brutos',
 
             data: gross,
 
