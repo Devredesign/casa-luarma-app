@@ -607,7 +607,6 @@ export default function TeacherPayouts({
       {/* ACORDEÓN 2: ALUMNOS POR PROFESOR */}
       <Accordion
         sx={{
-          mt: 2,
           width: '100%',
           minWidth: 0
         }}
