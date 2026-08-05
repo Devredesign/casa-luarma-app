@@ -238,16 +238,26 @@ export default function RentalManager({
               <Grid item xs={6} sm={3}>
                 <FormControl fullWidth size="small">
                   <InputLabel>Mes</InputLabel>
-                  <Select name="month" value={filters.month} onChange={handleFilterChange} label="Mes">
-                    <MenuItem value=""><em>Todos</em></MenuItem>
-{months.map(month => (
-  <MenuItem
-    key={month.value}
-    value={month.value}
-  >
-    {month.label}
-  </MenuItem>
-))}                  </Select>
+
+                  <Select
+                    name="month"
+                    value={filters.month}
+                    onChange={handleFilterChange}
+                    label="Mes"
+                  >
+                    <MenuItem value="">
+                      <em>Todos</em>
+                    </MenuItem>
+              
+                    {months.map(month => (
+                      <MenuItem
+                        key={month.value}
+                        value={month.value}
+                      >
+                        {month.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
                 </FormControl>
               </Grid>
 
