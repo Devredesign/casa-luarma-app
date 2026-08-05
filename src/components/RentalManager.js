@@ -229,7 +229,7 @@ export default function RentalManager({
       </Accordion>
 
       {!quick && (
-        <Accordion sx={{ mt: 1 }}>
+        <Accordion>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography>Listado de Alquileres</Typography>
           </AccordionSummary>
