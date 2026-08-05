@@ -50,7 +50,10 @@ function isSameMonthYear(dateLike, month, year) {
   if (!dateLike) return false;
   const d = new Date(dateLike);
   if (Number.isNaN(d.getTime())) return false;
-  return (d.getMonth() + 1) === month && d.getFullYear() === year;
+  return (
+  d.getUTCMonth() + 1 === month &&
+  d.getUTCFullYear() === year
+);
 }
 
 function getRentalSpaceId(r) {
@@ -162,74 +165,222 @@ export default function FinancialSummary({
     { label: 'Ganancia Neta',      key: 'realProfit' },
   ];
 
-  return (
-    <Box>
-      <Typography variant="h4" gutterBottom>
-        Resumen Financiero
-      </Typography>
+ return (
+  <Box
+    sx={{
+      width: '100%',
+      maxWidth: '100%',
+      minWidth: 0,
+      overflow: 'hidden'
+    }}
+  >
+    <Typography
+      variant="h4"
+      gutterBottom
+      sx={{
+        fontSize: {
+          xs: '1.6rem',
+          sm: '2.125rem'
+        }
+      }}
+    >
+      Resumen Financiero
+    </Typography>
 
-      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-        <FormControl size="small">
-          <InputLabel>Mes</InputLabel>
-          <Select value={month} label="Mes" onChange={(e) => setMonth(e.target.value)}>
-            {monthNames.map((m) => (
-              <MenuItem key={m.value} value={m.value}>
-                {m.label}
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: {
+          xs: 'minmax(0, 1fr)',
+          sm:
+            'minmax(0, 180px) minmax(0, 140px)'
+        },
+        gap: 2,
+        mb: 3,
+        width: '100%'
+      }}
+    >
+      <FormControl
+        size="small"
+        fullWidth
+      >
+        <InputLabel>
+          Mes
+        </InputLabel>
+
+        <Select
+          value={month}
+          label="Mes"
+          onChange={event =>
+            setMonth(
+              Number(
+                event.target.value
+              )
+            )
+          }
+        >
+          {monthNames.map(
+            monthOption => (
+              <MenuItem
+                key={
+                  monthOption.value
+                }
+                value={
+                  monthOption.value
+                }
+              >
+                {monthOption.label}
               </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+            )
+          )}
+        </Select>
+      </FormControl>
 
-        <FormControl size="small">
-          <InputLabel>Año</InputLabel>
-          <Select value={year} label="Año" onChange={(e) => setYear(e.target.value)}>
-            {Array.from({ length: 6 }).map((_, i) => {
-              const y = currentYear - i;
-              return (
-                <MenuItem key={y} value={y}>
-                  {y}
-                </MenuItem>
-              );
-            })}
-          </Select>
-        </FormControl>
-      </Box>
+      <FormControl
+        size="small"
+        fullWidth
+      >
+        <InputLabel>
+          Año
+        </InputLabel>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={3}>
-          <FinancialChart month={month} year={year} small refresh={refresh} />
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <TeacherPayoutChart month={month} year={year} small refresh={refresh} />
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <ProfitLineChart year={year} small refresh={refresh} />
-        </Grid>
-      </Grid>
+        <Select
+          value={year}
+          label="Año"
+          onChange={event =>
+            setYear(
+              Number(
+                event.target.value
+              )
+            )
+          }
+        >
+          {Array.from(
+            { length: 6 }
+          ).map((_, index) => {
+            const yearOption =
+              currentYear - index;
 
-      {!data ? (
-        <Typography sx={{ mt: 2 }}>Cargando resumen financiero…</Typography>
-      ) : (
-        <Grid container spacing={2} sx={{ mt: 1 }}>
-          {kpis.map((kpi) => {
-            const val = Number(data[kpi.key] ?? 0);
             return (
-              <Grid item xs={6} sm={4} md={4} key={kpi.key}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="subtitle2" color="textSecondary">
-                      {kpi.label}
-                    </Typography>
-                    <Typography variant="h5" sx={{ mt: 1 }}>
-                      ₡ {val.toLocaleString()}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
+              <MenuItem
+                key={yearOption}
+                value={yearOption}
+              >
+                {yearOption}
+              </MenuItem>
             );
           })}
-        </Grid>
-      )}
+        </Select>
+      </FormControl>
     </Box>
-  );
+
+    {/* Gráficos */}
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: {
+          xs: 'minmax(0, 1fr)',
+          lg:
+            'repeat(3, minmax(0, 1fr))'
+        },
+        gap: 2,
+        width: '100%',
+        minWidth: 0
+      }}
+    >
+      <Box sx={{ minWidth: 0 }}>
+        <FinancialChart
+          month={month}
+          year={year}
+          small
+          refresh={refresh}
+        />
+      </Box>
+
+      <Box sx={{ minWidth: 0 }}>
+        <TeacherPayoutChart
+          month={month}
+          year={year}
+          small
+          refresh={refresh}
+        />
+      </Box>
+
+      <Box sx={{ minWidth: 0 }}>
+        <ProfitLineChart
+          year={year}
+          small
+          refresh={refresh}
+        />
+      </Box>
+    </Box>
+
+    {!data ? (
+      <Typography sx={{ mt: 2 }}>
+        Cargando resumen financiero…
+      </Typography>
+    ) : (
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: 'minmax(0, 1fr)',
+            sm:
+              'repeat(2, minmax(0, 1fr))',
+            md:
+              'repeat(3, minmax(0, 1fr))'
+          },
+          gap: 2,
+          mt: 2,
+          width: '100%',
+          minWidth: 0
+        }}
+      >
+        {kpis.map(kpi => {
+          const value = Number(
+            data[kpi.key] ?? 0
+          );
+
+          return (
+            <Card
+              key={kpi.key}
+              sx={{
+                width: '100%',
+                minWidth: 0,
+                height: '100%'
+              }}
+            >
+              <CardContent>
+                <Typography
+                  variant="subtitle2"
+                  color="text.secondary"
+                >
+                  {kpi.label}
+                </Typography>
+
+                <Typography
+                  variant="h5"
+                  sx={{
+                    mt: 1,
+                    fontSize: {
+                      xs: '1.25rem',
+                      sm: '1.5rem'
+                    },
+                    overflowWrap:
+                      'anywhere'
+                  }}
+                >
+                  ₡{' '}
+                  {value.toLocaleString(
+                    'es-CR'
+                  )}
+                </Typography>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </Box>
+    )}
+  </Box>
+);
 }
