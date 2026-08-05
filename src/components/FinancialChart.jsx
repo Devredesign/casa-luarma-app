@@ -80,7 +80,7 @@ export default function FinancialChart({
       'Alquileres',
       'Profesores',
       'Operativos',
-      'Ganancia'
+      'Ingresos'
     ],
 
     datasets: [
