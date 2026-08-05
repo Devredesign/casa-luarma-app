@@ -96,7 +96,23 @@ export default function RentalManager({
     return Array.from(ys).sort((a, b) => b - a);
   }, [rentalsArr]);
 
-  const months = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
+  const months = useMemo(
+  () => [
+    { value: 1, label: 'Enero' },
+    { value: 2, label: 'Febrero' },
+    { value: 3, label: 'Marzo' },
+    { value: 4, label: 'Abril' },
+    { value: 5, label: 'Mayo' },
+    { value: 6, label: 'Junio' },
+    { value: 7, label: 'Julio' },
+    { value: 8, label: 'Agosto' },
+    { value: 9, label: 'Septiembre' },
+    { value: 10, label: 'Octubre' },
+    { value: 11, label: 'Noviembre' },
+    { value: 12, label: 'Diciembre' }
+  ],
+  []
+);
 
   const filteredRentals = useMemo(() => {
     return rentalsArr.filter((r) => {
@@ -224,8 +240,14 @@ export default function RentalManager({
                   <InputLabel>Mes</InputLabel>
                   <Select name="month" value={filters.month} onChange={handleFilterChange} label="Mes">
                     <MenuItem value=""><em>Todos</em></MenuItem>
-                    {months.map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}
-                  </Select>
+{months.map(month => (
+  <MenuItem
+    key={month.value}
+    value={month.value}
+  >
+    {month.label}
+  </MenuItem>
+))}                  </Select>
                 </FormControl>
               </Grid>
 
