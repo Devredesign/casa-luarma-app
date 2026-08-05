@@ -132,11 +132,25 @@ export default function FinancialSummary({
         // ✅ si backend viene 0, usamos el calculado con fallback
         const incomeRentals = incomeRentalsBackend > 0 ? incomeRentalsBackend : computedIncomeRentals;
 
-        const costTeachers = Number(base.costTeachers ?? 0);
-        const totalCosts = Number(base.totalCosts ?? 0);
+        const costTeachers = Number(
+  base.costTeachers ?? 0
+);
 
-        const grossProfit = (incomeClasses + incomeRentals) - costTeachers;
-        const realProfit = grossProfit - totalCosts;
+const totalCosts = Number(
+  base.totalCosts ?? 0
+);
+
+// Total ingresado antes de egresos
+const grossProfit =
+  incomeClasses +
+  incomeRentals;
+
+// Resultado después de profesores
+// y costos operativos
+const realProfit =
+  grossProfit -
+  costTeachers -
+  totalCosts;
 
         setData({
           ...base,
@@ -161,7 +175,7 @@ export default function FinancialSummary({
     { label: 'Ingreso Alquileres', key: 'incomeRentals' },
     { label: 'Costo Profesores',   key: 'costTeachers' },
     { label: 'Costos Operativos',  key: 'totalCosts' },
-    { label: 'Ganancia Bruta',     key: 'grossProfit' },
+    { label: 'Ingresos Brutos',     key: 'grossProfit' },
     { label: 'Ganancia Neta',      key: 'realProfit' },
   ];
 
