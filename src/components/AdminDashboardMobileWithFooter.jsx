@@ -36,9 +36,19 @@ export default function AdminDashboardMobileWithFooter({
       </Box>
 
       {/* Content (dejamos espacio para footer sticky) */}
-      <Box sx={{ p: 2, pb: 10 }}>
-        {children}
-      </Box>
+      <Box
+  sx={{
+    p: 2,
+    pb: 10,
+    width: '100%',
+    maxWidth: '100%',
+    minWidth: 0,
+    overflowX: 'hidden',
+    boxSizing: 'border-box'
+  }}
+>
+  {children}
+</Box>
 
       {/* Sticky footer */}
       <Paper
